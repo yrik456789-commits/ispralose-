@@ -1,5 +1,6 @@
 -- ======================================================
--- Isparlose Hub | Advanced Visuals, ESP & Misc (v3.1 Fix)
+-- Isparlose Hub | Visuals, ESP, Misc & Config System (v3.2 fix)
+-- Script Language: Luau (Roblox)
 -- ======================================================
 
 local Players = game:GetService("Players")
@@ -7,14 +8,12 @@ local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 local CoreGui = game:GetService("CoreGui")
-local Stats = game:GetService("Stats")
 
 local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
 
--- Конфигурация
+-- Главный конфиг
 local Config = {
-    -- Visuals / ESP
     OutlineESP = false,
     OutlineTeammates = false,
     
@@ -40,19 +39,17 @@ local Config = {
     },
     TracerColorNames = {"Neon Cyan", "Neon Red", "Neon Green", "Neon Purple", "Neon Yellow"},
 
-    -- Misc
     AntiMolotov = false,
     Noclip = false
 }
 
--- Выбор родителя (CoreGui / PlayerGui)
+local SavedConfigs = {}
+local SelectedConfigName = nil
+
+-- Родительский GUI
 local ParentGui = CoreGui
-pcall(function()
-    if not CoreGui then end
-end)
-if not ParentGui then
-    ParentGui = LocalPlayer:WaitForChild("PlayerGui")
-end
+pcall(function() if not CoreGui then end end)
+if not ParentGui then ParentGui = LocalPlayer:WaitForChild("PlayerGui") end
 
 if ParentGui:FindFirstChild("IsparloseGui") then
     ParentGui.IsparloseGui:Destroy()
@@ -68,7 +65,49 @@ local UI_SIZE = UDim2.new(0, 560, 0, 380)
 local UI_POS = UDim2.new(0.5, -280, 0.5, -190)
 
 ----------------------------------------------------
--- 1. ИНТРО (INTRO FRAME)
+-- 1. УВЕДОМЛЕНИЯ ОБ ОШИБКАХ
+----------------------------------------------------
+local NotificationFrame = Instance.new("Frame")
+NotificationFrame.Name = "NotificationFrame"
+NotificationFrame.Size = UDim2.new(0, 220, 0, 40)
+NotificationFrame.Position = UDim2.new(0.5, -110, 0.15, 0)
+NotificationFrame.BackgroundColor3 = Color3.fromRGB(220, 40, 50)
+NotificationFrame.BorderSizePixel = 0
+NotificationFrame.Visible = false
+NotificationFrame.ZIndex = 100
+NotificationFrame.Parent = ScreenGui
+
+local NotifCorner = Instance.new("UICorner")
+NotifCorner.CornerRadius = UDim.new(0, 8)
+NotifCorner.Parent = NotificationFrame
+
+local NotifText = Instance.new("TextLabel")
+NotifText.Size = UDim2.new(1, 0, 1, 0)
+NotifText.BackgroundTransparency = 1
+NotifText.Font = Enum.Font.GothamBold
+NotifText.TextSize = 13
+NotifText.TextColor3 = Color3.fromRGB(255, 255, 255)
+NotifText.Text = "нету текста"
+NotifText.ZIndex = 101
+NotifText.Parent = NotificationFrame
+
+local function showErrorNotification(msg)
+    NotifText.Text = msg or "нету текста"
+    NotificationFrame.BackgroundTransparency = 0
+    NotifText.TextTransparency = 0
+    NotificationFrame.Visible = true
+    
+    task.spawn(function()
+        task.wait(1.8)
+        TweenService:Create(NotificationFrame, TweenInfo.new(0.4), {BackgroundTransparency = 1}):Play()
+        TweenService:Create(NotifText, TweenInfo.new(0.4), {TextTransparency = 1}):Play()
+        task.wait(0.4)
+        NotificationFrame.Visible = false
+    end)
+end
+
+----------------------------------------------------
+-- 2. ИНТРО (v3.2 fix)
 ----------------------------------------------------
 local IntroFrame = Instance.new("Frame")
 IntroFrame.Name = "IntroFrame"
@@ -91,11 +130,11 @@ IntroStroke.Parent = IntroFrame
 
 local IntroTitle = Instance.new("TextLabel")
 IntroTitle.Size = UDim2.new(1, 0, 0, 60)
-IntroTitle.Position = UDim2.new(0, 0, 0.33, 0)
+IntroTitle.Position = UDim2.new(0, 0, 0.30, 0)
 IntroTitle.BackgroundTransparency = 1
-IntroTitle.Text = "I S P A R L O S E"
+IntroTitle.Text = "I S P A R L O S E  v3.2 (fix)"
 IntroTitle.Font = Enum.Font.GothamBold
-IntroTitle.TextSize = 34
+IntroTitle.TextSize = 28
 IntroTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
 IntroTitle.TextTransparency = 1
 IntroTitle.Parent = IntroFrame
@@ -134,7 +173,7 @@ ProgressBarFillCorner.CornerRadius = UDim.new(1, 0)
 ProgressBarFillCorner.Parent = ProgressBarFill
 
 ----------------------------------------------------
--- 2. ГЛАВНОЕ МЕНЮ (MAIN FRAME)
+-- 3. ГЛАВНОЕ МЕНЮ
 ----------------------------------------------------
 local MainFrame = Instance.new("Frame")
 MainFrame.Name = "MainFrame"
@@ -168,16 +207,16 @@ TopbarCorner.Parent = Topbar
 
 local TopbarTitle = Instance.new("TextLabel")
 TopbarTitle.Position = UDim2.new(0, 15, 0, 0)
-TopbarTitle.Size = UDim2.new(0, 250, 1, 0)
+TopbarTitle.Size = UDim2.new(0, 280, 1, 0)
 TopbarTitle.BackgroundTransparency = 1
-TopbarTitle.Text = "ISPARLOSE  |  HUB"
+TopbarTitle.Text = "ISPARLOSE  |  HUB v3.2 (fix)"
 TopbarTitle.Font = Enum.Font.GothamBold
 TopbarTitle.TextSize = 13
 TopbarTitle.TextColor3 = Color3.fromRGB(240, 240, 250)
 TopbarTitle.TextXAlignment = Enum.TextXAlignment.Left
 TopbarTitle.Parent = Topbar
 
--- Dragging
+-- Перетаскивание меню
 local dragging, dragInput, dragStart, startPos
 Topbar.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 then
@@ -203,7 +242,7 @@ UserInputService.InputChanged:Connect(function(input)
     end
 end)
 
--- Sidebar & Tabs
+-- Sidebar & Content
 local Sidebar = Instance.new("Frame")
 Sidebar.Size = UDim2.new(0, 140, 1, -40)
 Sidebar.Position = UDim2.new(0, 0, 0, 40)
@@ -224,7 +263,7 @@ ContentPanel.Position = UDim2.new(0, 141, 0, 40)
 ContentPanel.BackgroundTransparency = 1
 ContentPanel.Parent = MainFrame
 
--- Scrolling Frames
+-- Вкладки
 local VisualsScroll = Instance.new("ScrollingFrame")
 VisualsScroll.Size = UDim2.new(1, -20, 1, -20)
 VisualsScroll.Position = UDim2.new(0, 10, 0, 10)
@@ -257,7 +296,23 @@ MiscLayout.SortOrder = Enum.SortOrder.LayoutOrder
 MiscLayout.Padding = UDim.new(0, 8)
 MiscLayout.Parent = MiscScroll
 
--- Кнопки вкладок
+local ConfigScroll = Instance.new("ScrollingFrame")
+ConfigScroll.Size = UDim2.new(1, -20, 1, -20)
+ConfigScroll.Position = UDim2.new(0, 10, 0, 10)
+ConfigScroll.BackgroundTransparency = 1
+ConfigScroll.BorderSizePixel = 0
+ConfigScroll.ScrollBarThickness = 3
+ConfigScroll.ScrollBarImageColor3 = Color3.fromRGB(80, 80, 100)
+ConfigScroll.CanvasSize = UDim2.new(0, 0, 0, 420)
+ConfigScroll.Visible = false
+ConfigScroll.Parent = ContentPanel
+
+local ConfigLayout = Instance.new("UIListLayout")
+ConfigLayout.SortOrder = Enum.SortOrder.LayoutOrder
+ConfigLayout.Padding = UDim.new(0, 8)
+ConfigLayout.Parent = ConfigScroll
+
+-- Кнопки в сайдбаре
 local TabVisualsBtn = Instance.new("TextButton")
 TabVisualsBtn.Size = UDim2.new(1, -20, 0, 36)
 TabVisualsBtn.Position = UDim2.new(0, 10, 0, 10)
@@ -290,27 +345,46 @@ local TabMiscCorner = Instance.new("UICorner")
 TabMiscCorner.CornerRadius = UDim.new(0, 6)
 TabMiscCorner.Parent = TabMiscBtn
 
-TabVisualsBtn.MouseButton1Click:Connect(function()
-    VisualsScroll.Visible = true
-    MiscScroll.Visible = false
-    TabVisualsBtn.BackgroundColor3 = Color3.fromRGB(24, 24, 32)
-    TabVisualsBtn.TextColor3 = Color3.fromRGB(110, 86, 207)
-    TabMiscBtn.BackgroundColor3 = Color3.fromRGB(16, 16, 22)
-    TabMiscBtn.TextColor3 = Color3.fromRGB(140, 140, 160)
-end)
+local TabConfigBtn = Instance.new("TextButton")
+TabConfigBtn.Size = UDim2.new(1, -20, 0, 36)
+TabConfigBtn.Position = UDim2.new(0, 10, 0, 98)
+TabConfigBtn.BackgroundColor3 = Color3.fromRGB(16, 16, 22)
+TabConfigBtn.Text = "  CONFIG"
+TabConfigBtn.Font = Enum.Font.GothamBold
+TabConfigBtn.TextSize = 11
+TabConfigBtn.TextColor3 = Color3.fromRGB(140, 140, 160)
+TabConfigBtn.TextXAlignment = Enum.TextXAlignment.Left
+TabConfigBtn.AutoButtonColor = false
+TabConfigBtn.Parent = Sidebar
 
-TabMiscBtn.MouseButton1Click:Connect(function()
-    VisualsScroll.Visible = false
-    MiscScroll.Visible = true
-    TabMiscBtn.BackgroundColor3 = Color3.fromRGB(24, 24, 32)
-    TabMiscBtn.TextColor3 = Color3.fromRGB(110, 86, 207)
-    TabVisualsBtn.BackgroundColor3 = Color3.fromRGB(16, 16, 22)
-    TabVisualsBtn.TextColor3 = Color3.fromRGB(140, 140, 160)
-end)
+local TabConfigCorner = Instance.new("UICorner")
+TabConfigCorner.CornerRadius = UDim.new(0, 6)
+TabConfigCorner.Parent = TabConfigBtn
+
+local function switchTab(activeTab)
+    VisualsScroll.Visible = (activeTab == "Visuals")
+    MiscScroll.Visible = (activeTab == "Misc")
+    ConfigScroll.Visible = (activeTab == "Config")
+    
+    TabVisualsBtn.BackgroundColor3 = (activeTab == "Visuals") and Color3.fromRGB(24, 24, 32) or Color3.fromRGB(16, 16, 22)
+    TabVisualsBtn.TextColor3 = (activeTab == "Visuals") and Color3.fromRGB(110, 86, 207) or Color3.fromRGB(140, 140, 160)
+    
+    TabMiscBtn.BackgroundColor3 = (activeTab == "Misc") and Color3.fromRGB(24, 24, 32) or Color3.fromRGB(16, 16, 22)
+    TabMiscBtn.TextColor3 = (activeTab == "Misc") and Color3.fromRGB(110, 86, 207) or Color3.fromRGB(140, 140, 160)
+    
+    TabConfigBtn.BackgroundColor3 = (activeTab == "Config") and Color3.fromRGB(24, 24, 32) or Color3.fromRGB(16, 16, 22)
+    TabConfigBtn.TextColor3 = (activeTab == "Config") and Color3.fromRGB(110, 86, 207) or Color3.fromRGB(140, 140, 160)
+end
+
+TabVisualsBtn.MouseButton1Click:Connect(function() switchTab("Visuals") end)
+TabMiscBtn.MouseButton1Click:Connect(function() switchTab("Misc") end)
+TabConfigBtn.MouseButton1Click:Connect(function() switchTab("Config") end)
 
 ----------------------------------------------------
 -- КОМПОНЕНТЫ ИНТЕРФЕЙСА
 ----------------------------------------------------
+local RegisteredToggles = {}
+
 local function createSection(parent, titleText)
     local section = Instance.new("Frame")
     section.Size = UDim2.new(1, 0, 0, 24)
@@ -330,7 +404,7 @@ local function createSection(parent, titleText)
     return section
 end
 
-local function createToggle(parent, text, defaultState, callback)
+local function createToggle(parent, text, configKey, callback)
     local card = Instance.new("Frame")
     card.Size = UDim2.new(1, 0, 0, 36)
     card.BackgroundColor3 = Color3.fromRGB(24, 24, 32)
@@ -351,6 +425,8 @@ local function createToggle(parent, text, defaultState, callback)
     label.TextColor3 = Color3.fromRGB(220, 220, 230)
     label.TextXAlignment = Enum.TextXAlignment.Left
     label.Parent = card
+    
+    local defaultState = Config[configKey] or false
     
     local switchBg = Instance.new("TextButton")
     switchBg.Size = UDim2.new(0, 36, 0, 18)
@@ -376,17 +452,21 @@ local function createToggle(parent, text, defaultState, callback)
     dotCorner.Parent = switchDot
     
     local state = defaultState
-    switchBg.MouseButton1Click:Connect(function()
-        state = not state
+    local function updateVisuals(newState)
+        state = newState
+        Config[configKey] = newState
         local targetBg = state and Color3.fromRGB(110, 86, 207) or Color3.fromRGB(40, 40, 52)
         local targetDotPos = state and UDim2.new(1, -15, 0.5, -6) or UDim2.new(0, 3, 0.5, -6)
-        
         TweenService:Create(switchBg, TweenInfo.new(0.2), {BackgroundColor3 = targetBg}):Play()
         TweenService:Create(switchDot, TweenInfo.new(0.2), {Position = targetDotPos}):Play()
-        
         callback(state)
+    end
+    
+    switchBg.MouseButton1Click:Connect(function()
+        updateVisuals(not state)
     end)
     
+    RegisteredToggles[configKey] = updateVisuals
     return card
 end
 
@@ -410,43 +490,236 @@ local function createButton(parent, text, callback)
     btn.TextColor3 = Color3.fromRGB(220, 220, 230)
     btn.Parent = card
     
-    btn.MouseButton1Click:Connect(function()
-        callback(btn)
-    end)
-    
+    btn.MouseButton1Click:Connect(function() callback(btn) end)
     return card
 end
 
 ----------------------------------------------------
 -- НАПОЛНЕНИЕ ВКЛАДОК
 ----------------------------------------------------
+-- Visuals
 createSection(VisualsScroll, "1. Outline ESP")
-createToggle(VisualsScroll, "Enable Outline ESP", Config.OutlineESP, function(val) Config.OutlineESP = val end)
-createToggle(VisualsScroll, "   └─ Show Teammates Outline", Config.OutlineTeammates, function(val) Config.OutlineTeammates = val end)
+createToggle(VisualsScroll, "Enable Outline ESP", "OutlineESP", function() end)
+createToggle(VisualsScroll, "   └─ Show Teammates Outline", "OutlineTeammates", function() end)
 
 createSection(VisualsScroll, "2. Boxes ESP")
-createToggle(VisualsScroll, "Enable Boxes ESP", Config.BoxESP, function(val) Config.BoxESP = val end)
-createToggle(VisualsScroll, "   └─ Show Teammates Boxes", Config.BoxTeammates, function(val) Config.BoxTeammates = val end)
-createToggle(VisualsScroll, "   └─ Show HP Bar (Left Green->Red)", Config.ShowHP, function(val) Config.ShowHP = val end)
-createToggle(VisualsScroll, "   └─ Show Weapon Name (Bottom)", Config.ShowWeapon, function(val) Config.ShowWeapon = val end)
+createToggle(VisualsScroll, "Enable Boxes ESP", "BoxESP", function() end)
+createToggle(VisualsScroll, "   └─ Show Teammates Boxes", "BoxTeammates", function() end)
+createToggle(VisualsScroll, "   └─ Show HP Bar (Left Green->Red)", "ShowHP", function() end)
+createToggle(VisualsScroll, "   └─ Show Weapon Name (Bottom)", "ShowWeapon", function() end)
 
 createSection(VisualsScroll, "3. Directional Arrows")
-createToggle(VisualsScroll, "Enable Offscreen Arrows", Config.ArrowsESP, function(val) Config.ArrowsESP = val end)
-createToggle(VisualsScroll, "   └─ Show Enemies Arrows", Config.ArrowEnemies, function(val) Config.ArrowEnemies = val end)
+createToggle(VisualsScroll, "Enable Offscreen Arrows", "ArrowsESP", function() end)
+createToggle(VisualsScroll, "   └─ Show Enemies Arrows", "ArrowEnemies", function() end)
 
 createSection(VisualsScroll, "4. Bullet Tracers")
-createToggle(VisualsScroll, "Enable Bullet Tracers", Config.BulletTracers, function(val) Config.BulletTracers = val end)
+createToggle(VisualsScroll, "Enable Bullet Tracers", "BulletTracers", function() end)
 createButton(VisualsScroll, "   └─ Tracer Color: [ Neon Cyan ]", function(btn)
     Config.TracerColorIndex = Config.TracerColorIndex % #Config.TracerColors + 1
     btn.Text = "   └─ Tracer Color: [ " .. Config.TracerColorNames[Config.TracerColorIndex] .. " ]"
 end)
 
+-- Misc
 createSection(MiscScroll, "1. Player Modifications")
-createToggle(MiscScroll, "No Molotov Damage", Config.AntiMolotov, function(val) Config.AntiMolotov = val end)
-createToggle(MiscScroll, "Noclip", Config.Noclip, function(val) Config.Noclip = val end)
+createToggle(MiscScroll, "No Molotov Damage", "AntiMolotov", function() end)
+createToggle(MiscScroll, "Noclip", "Noclip", function() end)
 
 ----------------------------------------------------
--- 3. ИНТРО АНИМАЦИЯ
+-- 4. ОПЦИИ И ОКНО КОНФИГОВ (CONFIG SYSTEM)
+----------------------------------------------------
+-- Модальное окно "Сохранить конфиг"
+local SaveModal = Instance.new("Frame")
+SaveModal.Name = "SaveModal"
+SaveModal.Size = UDim2.new(0, 320, 0, 150)
+SaveModal.Position = UDim2.new(0.5, -160, 0.5, -75)
+SaveModal.BackgroundColor3 = Color3.fromRGB(22, 22, 30)
+SaveModal.BorderSizePixel = 0
+SaveModal.Visible = false
+SaveModal.ZIndex = 50
+SaveModal.Parent = ScreenGui
+
+local ModalCorner = Instance.new("UICorner")
+ModalCorner.CornerRadius = UDim.new(0, 10)
+ModalCorner.Parent = SaveModal
+
+local ModalStroke = Instance.new("UIStroke")
+ModalStroke.Color = Color3.fromRGB(110, 86, 207)
+ModalStroke.Thickness = 1.5
+ModalStroke.Parent = SaveModal
+
+local ModalTitle = Instance.new("TextLabel")
+ModalTitle.Size = UDim2.new(1, 0, 0, 30)
+ModalTitle.Position = UDim2.new(0, 0, 0, 10)
+ModalTitle.BackgroundTransparency = 1
+ModalTitle.Text = "Введите название конфига"
+ModalTitle.Font = Enum.Font.GothamBold
+ModalTitle.TextSize = 13
+ModalTitle.TextColor3 = Color3.fromRGB(240, 240, 250)
+ModalTitle.ZIndex = 51
+ModalTitle.Parent = SaveModal
+
+local ConfigInput = Instance.new("TextBox")
+ConfigInput.Size = UDim2.new(0.86, 0, 0, 32)
+ConfigInput.Position = UDim2.new(0.07, 0, 0.35, 0)
+ConfigInput.BackgroundColor3 = Color3.fromRGB(14, 14, 20)
+ConfigInput.BorderSizePixel = 0
+ConfigInput.Font = Enum.Font.GothamMedium
+ConfigInput.TextSize = 12
+ConfigInput.TextColor3 = Color3.fromRGB(255, 255, 255)
+ConfigInput.PlaceholderText = "Название конфига..."
+ConfigInput.PlaceholderColor3 = Color3.fromRGB(100, 100, 120)
+ConfigInput.Text = ""
+ConfigInput.ZIndex = 51
+ConfigInput.Parent = SaveModal
+
+local InputCorner = Instance.new("UICorner")
+InputCorner.CornerRadius = UDim.new(0, 6)
+InputCorner.Parent = ConfigInput
+
+-- Кнопки Отмена (слева) и ОК (справа)
+local CancelBtn = Instance.new("TextButton")
+CancelBtn.Size = UDim2.new(0.38, 0, 0, 32)
+CancelBtn.Position = UDim2.new(0.08, 0, 0.68, 0)
+CancelBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
+CancelBtn.Text = "Отмена"
+CancelBtn.Font = Enum.Font.GothamBold
+CancelBtn.TextSize = 12
+CancelBtn.TextColor3 = Color3.fromRGB(200, 200, 210)
+CancelBtn.ZIndex = 51
+CancelBtn.Parent = SaveModal
+
+local CancelCorner = Instance.new("UICorner")
+CancelCorner.CornerRadius = UDim.new(0, 6)
+CancelCorner.Parent = CancelBtn
+
+local OkBtn = Instance.new("TextButton")
+OkBtn.Size = UDim2.new(0.38, 0, 0, 32)
+OkBtn.Position = UDim2.new(0.54, 0, 0.68, 0)
+OkBtn.BackgroundColor3 = Color3.fromRGB(110, 86, 207)
+OkBtn.Text = "ОК"
+OkBtn.Font = Enum.Font.GothamBold
+OkBtn.TextSize = 12
+OkBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+OkBtn.ZIndex = 51
+OkBtn.Parent = SaveModal
+
+local OkCorner = Instance.new("UICorner")
+OkCorner.CornerRadius = UDim.new(0, 6)
+OkCorner.Parent = OkBtn
+
+-- Контейнер подвкладки сохраненных конфигов
+local ConfigListFrame = Instance.new("Frame")
+ConfigListFrame.Size = UDim2.new(1, 0, 0, 140)
+ConfigListFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 28)
+ConfigListFrame.BorderSizePixel = 0
+ConfigListFrame.Parent = ConfigScroll
+
+local ConfigListCorner = Instance.new("UICorner")
+ConfigListCorner.CornerRadius = UDim.new(0, 6)
+ConfigListCorner.Parent = ConfigListFrame
+
+local ConfigListScroll = Instance.new("ScrollingFrame")
+ConfigListScroll.Size = UDim2.new(1, -10, 1, -10)
+ConfigListScroll.Position = UDim2.new(0, 5, 0, 5)
+ConfigListScroll.BackgroundTransparency = 1
+ConfigListScroll.BorderSizePixel = 0
+ConfigListScroll.ScrollBarThickness = 3
+ConfigListScroll.Parent = ConfigListFrame
+
+local ConfigListLayout = Instance.new("UIListLayout")
+ConfigListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+ConfigListLayout.Padding = UDim.new(0, 4)
+ConfigListLayout.Parent = ConfigListScroll
+
+local SelectedLabel = Instance.new("TextLabel")
+SelectedLabel.Size = UDim2.new(1, 0, 0, 20)
+SelectedLabel.BackgroundTransparency = 1
+SelectedLabel.Font = Enum.Font.GothamMedium
+SelectedLabel.TextSize = 11
+SelectedLabel.TextColor3 = Color3.fromRGB(160, 160, 180)
+SelectedLabel.Text = "Выбран конфиг: [ Ничего ]"
+SelectedLabel.TextXAlignment = Enum.TextXAlignment.Left
+SelectedLabel.Parent = ConfigScroll
+
+local function refreshConfigListUI()
+    for _, child in ipairs(ConfigListScroll:GetChildren()) do
+        if child:IsA("TextButton") then child:Destroy() end
+    end
+    
+    for name, _ in pairs(SavedConfigs) do
+        local itemBtn = Instance.new("TextButton")
+        itemBtn.Size = UDim2.new(1, 0, 0, 28)
+        itemBtn.BackgroundColor3 = (SelectedConfigName == name) and Color3.fromRGB(110, 86, 207) or Color3.fromRGB(28, 28, 38)
+        itemBtn.Text = "   " .. name
+        itemBtn.Font = Enum.Font.GothamMedium
+        itemBtn.TextSize = 11
+        itemBtn.TextColor3 = Color3.fromRGB(240, 240, 250)
+        itemBtn.TextXAlignment = Enum.TextXAlignment.Left
+        itemBtn.Parent = ConfigListScroll
+        
+        local itemCorner = Instance.new("UICorner")
+        itemCorner.CornerRadius = UDim.new(0, 4)
+        itemCorner.Parent = itemBtn
+        
+        itemBtn.MouseButton1Click:Connect(function()
+            SelectedConfigName = name
+            SelectedLabel.Text = "Выбран конфиг: [ " .. name .. " ]"
+            refreshConfigListUI()
+        end)
+    end
+end
+
+createSection(ConfigScroll, "1. Config Management")
+createButton(ConfigScroll, "Сохранить конфиг", function()
+    ConfigInput.Text = ""
+    SaveModal.Visible = true
+end)
+
+createButton(ConfigScroll, "Загрузить конфиг", function()
+    if not SelectedConfigName or not SavedConfigs[SelectedConfigName] then
+        showErrorNotification("Выберите конфиг!")
+        return
+    end
+    
+    local data = SavedConfigs[SelectedConfigName]
+    for key, value in pairs(data) do
+        if Config[key] ~= nil then
+            Config[key] = value
+            if RegisteredToggles[key] then
+                RegisteredToggles[key](value)
+            end
+        end
+    end
+end)
+
+createSection(ConfigScroll, "2. Сохраненные конфиги")
+
+-- Логика модального окна сохранения
+CancelBtn.MouseButton1Click:Connect(function()
+    SaveModal.Visible = false
+end)
+
+OkBtn.MouseButton1Click:Connect(function()
+    local text = ConfigInput.Text:gsub("%s+", "")
+    if text == "" then
+        showErrorNotification("нету текста")
+    else
+        local cfgData = {}
+        for k, v in pairs(Config) do
+            if type(v) ~= "table" then
+                cfgData[k] = v
+            end
+        end
+        SavedConfigs[ConfigInput.Text] = cfgData
+        SelectedConfigName = ConfigInput.Text
+        SelectedLabel.Text = "Выбран конфиг: [ " .. ConfigInput.Text .. " ]"
+        refreshConfigListUI()
+        SaveModal.Visible = false
+    end
+end)
+
+----------------------------------------------------
+-- 5. ИНТРО АНИМАЦИЯ
 ----------------------------------------------------
 task.spawn(function()
     TweenService:Create(IntroTitle, TweenInfo.new(0.8), {TextTransparency = 0}):Play()
@@ -478,7 +751,7 @@ task.spawn(function()
 end)
 
 ----------------------------------------------------
--- 4. ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ
+-- 6. ВСПОМОГАТЕЛЬНЫЕ ПРОВЕРКИ
 ----------------------------------------------------
 local EspFolder = Instance.new("Folder")
 EspFolder.Name = "IsparloseESP"
@@ -495,86 +768,132 @@ end
 local function getEquippedWeaponName(player)
     local char = player.Character
     if not char then return "None" end
-    
     local tool = char:FindFirstChildOfClass("Tool")
     if tool then return tool.Name end
-    
-    local equippedVal = char:FindFirstChild("EquippedWeapon") or char:FindFirstChild("EquippedTool") or char:FindFirstChild("CurrentWeapon")
-    if equippedVal then
-        if equippedVal:IsA("StringValue") or equippedVal:IsA("ObjectValue") then
-            return tostring(equippedVal.Value)
-        end
-    end
-    
     return "Primary / Knife"
 end
 
-----------------------------------------------------
--- 5. ТРЕЙСЕРЫ ПУЛЬ (ФИКСИРОВАННЫЙ СПАВН)
-----------------------------------------------------
-local function createTracer(fromPos, toPos)
-    if not Config.BulletTracers then return end
-    
-    local ping = 0.04
-    pcall(function()
-        ping = Stats.Network.ServerStatsItem["Data Ping"]:GetValue() / 1000
-    end)
-    
-    local distance = (toPos - fromPos).Magnitude
-    if distance < 1 then return end
-    
-    local tracerPart = Instance.new("Part")
-    tracerPart.Name = "IsparloseTracer"
-    tracerPart.Anchored = true
-    tracerPart.CanCollide = false
-    tracerPart.Material = Enum.Material.Neon
-    tracerPart.Color = Config.TracerColors[Config.TracerColorIndex]
-    tracerPart.Transparency = 0.1
-    tracerPart.Size = Vector3.new(0.12, 0.12, distance)
-    tracerPart.CFrame = CFrame.new(fromPos:Lerp(toPos, 0.5), toPos)
-    tracerPart.Parent = workspace
-    
-    local duration = 0.35 + math.clamp(ping, 0, 0.25)
-    TweenService:Create(tracerPart, TweenInfo.new(duration), {
-        Transparency = 1,
-        Size = Vector3.new(0.01, 0.01, distance)
-    }):Play()
-    
-    task.delay(duration + 0.05, function()
-        tracerPart:Destroy()
-    end)
+local function isHoldingKnife(char)
+    if not char then return false end
+    local tool = char:FindFirstChildOfClass("Tool")
+    if tool then
+        local name = tool.Name:lower()
+        if name:find("knife") or name:find("blade") or name:find("sword") or name:find("machete") or name:find("karambit") or name:find("melee") or name:find("bayonet") or name:find("dagger") then
+            return true
+        end
+    end
+    return false
 end
 
--- Обработка выстрелов (без блокировки gameProcessed)
-UserInputService.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 and Config.BulletTracers then
+local function isMouseOverUI()
+    if UserInputService:GetFocusedTextBox() then return true end
+    local mousePos = UserInputService:GetMouseLocation()
+    
+    if MainFrame.Visible then
+        local pos, size = MainFrame.AbsolutePosition, MainFrame.AbsoluteSize
+        if mousePos.X >= pos.X and mousePos.X <= pos.X + size.X and mousePos.Y >= pos.Y and mousePos.Y <= pos.Y + size.Y then
+            return true
+        end
+    end
+    if SaveModal.Visible then
+        local pos, size = SaveModal.AbsolutePosition, SaveModal.AbsoluteSize
+        if mousePos.X >= pos.X and mousePos.X <= pos.X + size.X and mousePos.Y >= pos.Y and mousePos.Y <= pos.Y + size.Y then
+            return true
+        end
+    end
+    return false
+end
+
+----------------------------------------------------
+-- 7. ТРЕЙСЕРЫ ПУЛЬ (ЗАЖИМ, ФИЛЬТР МАГАЗИНА И НОЖА)
+----------------------------------------------------
+local activeTracer = nil
+local activeTracerConn = nil
+local isLmbDown = false
+
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        isLmbDown = true
+        if gameProcessed then return end
+        if not Config.BulletTracers then return end
+        if isMouseOverUI() then return end
+        
         local char = LocalPlayer.Character
-        if char and char:FindFirstChild("HumanoidRootPart") then
-            local mouse = LocalPlayer:GetMouse()
-            local targetPos = mouse.Hit and mouse.Hit.Position
-            
-            if targetPos then
-                local muzzlePos
-                local tool = char:FindFirstChildOfClass("Tool")
-                
-                if tool and tool:FindFirstChild("Handle") then
-                    muzzlePos = tool.Handle.Position
-                elseif char:FindFirstChild("RightHand") then
-                    muzzlePos = char.RightHand.Position
-                elseif char:FindFirstChild("Right Arm") then
-                    muzzlePos = char["Right Arm"].Position
-                else
-                    muzzlePos = Camera.CFrame.Position - Vector3.new(0, 0.4, 0)
-                end
-                
-                createTracer(muzzlePos, targetPos)
+        if not char or isHoldingKnife(char) then return end
+        
+        local mouse = LocalPlayer:GetMouse()
+        local targetPos = mouse.Hit and mouse.Hit.Position
+        if not targetPos then return end
+        
+        if activeTracer then activeTracer:Destroy() activeTracer = nil end
+        if activeTracerConn then activeTracerConn:Disconnect() activeTracerConn = nil end
+        
+        local tracerPart = Instance.new("Part")
+        tracerPart.Name = "IsparloseTracer"
+        tracerPart.Anchored = true
+        tracerPart.CanCollide = false
+        tracerPart.Material = Enum.Material.Neon
+        tracerPart.Color = Config.TracerColors[Config.TracerColorIndex]
+        tracerPart.Transparency = 0.1
+        tracerPart.Parent = workspace
+        activeTracer = tracerPart
+        
+        local function updateTracer()
+            if not isLmbDown or not activeTracer or not activeTracer.Parent then return end
+            local curChar = LocalPlayer.Character
+            if not curChar or isHoldingKnife(curChar) or isMouseOverUI() then
+                return
             end
+            
+            local muzzlePos
+            local tool = curChar:FindFirstChildOfClass("Tool")
+            if tool and tool:FindFirstChild("Handle") then
+                muzzlePos = tool.Handle.Position
+            elseif curChar:FindFirstChild("RightHand") then
+                muzzlePos = curChar.RightHand.Position
+            elseif curChar:FindFirstChild("Right Arm") then
+                muzzlePos = curChar["Right Arm"].Position
+            else
+                muzzlePos = Camera.CFrame.Position - Vector3.new(0, 0.4, 0)
+            end
+            
+            local curTarget = mouse.Hit and mouse.Hit.Position or targetPos
+            local dist = (curTarget - muzzlePos).Magnitude
+            if dist > 0.5 then
+                activeTracer.Size = Vector3.new(0.12, 0.12, dist)
+                activeTracer.CFrame = CFrame.new(muzzlePos:Lerp(curTarget, 0.5), curTarget)
+            end
+        end
+        
+        updateTracer()
+        activeTracerConn = RunService.RenderStepped:Connect(updateTracer)
+    end
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        isLmbDown = false
+        if activeTracerConn then
+            activeTracerConn:Disconnect()
+            activeTracerConn = nil
+        end
+        if activeTracer then
+            local tracerToFade = activeTracer
+            activeTracer = nil
+            local fadeTween = TweenService:Create(tracerToFade, TweenInfo.new(0.35, Enum.EasingStyle.Linear), {
+                Transparency = 1,
+                Size = Vector3.new(0.01, 0.01, tracerToFade.Size.Z)
+            })
+            fadeTween:Play()
+            task.delay(0.36, function()
+                if tracerToFade then tracerToFade:Destroy() end
+            end)
         end
     end
 end)
 
 ----------------------------------------------------
--- 6. ЛОГИКА MISC (NO MOLOTOV & NOCLIP)
+-- 8. ЛОГИКА MISC (NO MOLOTOV & NOCLIP)
 ----------------------------------------------------
 RunService.Heartbeat:Connect(function()
     if Config.AntiMolotov then
@@ -600,34 +919,33 @@ RunService.Stepped:Connect(function()
 end)
 
 ----------------------------------------------------
--- 7. ТОЧНЫЙ 3D BOUNDING BOX РАСЧЕТ ДЛЯ BOX ESP
+-- 9. РАСЧЕТ ИДЕАЛЬНОГО 3D BOUNDING BOX
 ----------------------------------------------------
 local function getCharacterBoxBounds(char)
-    local hrp = char:FindFirstChild("HumanoidRootPart")
-    if not hrp then return nil end
+    if not char then return nil end
+    local cf, size = char:GetBoundingBox()
     
-    local cf = hrp.CFrame
-    -- Размер модели хитбокса игрока в 3D
-    local size = Vector3.new(3.8, 5.8, 2.5)
+    local halfX = size.X / 2
+    local halfY = size.Y / 2
+    local halfZ = size.Z / 2
     
-    -- 8 углов персонажа
     local corners = {
-        cf * Vector3.new(-size.X/2,  size.Y/2 - 0.2, -size.Z/2),
-        cf * Vector3.new( size.X/2,  size.Y/2 - 0.2, -size.Z/2),
-        cf * Vector3.new(-size.X/2, -size.Y/2 - 0.2, -size.Z/2),
-        cf * Vector3.new( size.X/2, -size.Y/2 - 0.2, -size.Z/2),
-        cf * Vector3.new(-size.X/2,  size.Y/2 - 0.2,  size.Z/2),
-        cf * Vector3.new( size.X/2,  size.Y/2 - 0.2,  size.Z/2),
-        cf * Vector3.new(-size.X/2, -size.Y/2 - 0.2,  size.Z/2),
-        cf * Vector3.new( size.X/2, -size.Y/2 - 0.2,  size.Z/2),
+        cf * Vector3.new(-halfX,  halfY, -halfZ),
+        cf * Vector3.new( halfX,  halfY, -halfZ),
+        cf * Vector3.new(-halfX, -halfY, -halfZ),
+        cf * Vector3.new( halfX, -halfY, -halfZ),
+        cf * Vector3.new(-halfX,  halfY,  halfZ),
+        cf * Vector3.new( halfX,  halfY,  halfZ),
+        cf * Vector3.new(-halfX, -halfY,  halfZ),
+        cf * Vector3.new( halfX, -halfY,  halfZ),
     }
     
     local minX, minY = math.huge, math.huge
     local maxX, maxY = -math.huge, -math.huge
     local anyOnScreen = false
     
-    for _, pos in ipairs(corners) do
-        local screenPos, onScreen = Camera:WorldToViewportPoint(pos)
+    for _, cornerPos in ipairs(corners) do
+        local screenPos, onScreen = Camera:WorldToViewportPoint(cornerPos)
         if screenPos.Z > 0 then
             anyOnScreen = true
             minX = math.min(minX, screenPos.X)
@@ -644,7 +962,7 @@ local function getCharacterBoxBounds(char)
 end
 
 ----------------------------------------------------
--- 8. МЕНЕДЖЕР ESP И ОБНОВЛЕНИЕ КАДРА
+-- 10. РЕНДЕР КАЖДОГО КАДРА (ESP)
 ----------------------------------------------------
 local espElements = {}
 
@@ -730,7 +1048,6 @@ local function updateHighlights()
             local char = player.Character
             local hum = char:FindFirstChildOfClass("Humanoid")
             local isTeam = isTeammate(player)
-            
             local shouldShow = Config.OutlineESP and hum and hum.Health > 0 and (not isTeam or Config.OutlineTeammates)
             
             if shouldShow then
@@ -743,14 +1060,8 @@ local function updateHighlights()
                     hl.OutlineTransparency = 0.1
                     hl.Parent = char
                 end
-                
-                if isTeam then
-                    hl.FillColor = Color3.fromRGB(0, 200, 255)
-                    hl.OutlineColor = Color3.fromRGB(0, 255, 255)
-                else
-                    hl.FillColor = Color3.fromRGB(255, 50, 50)
-                    hl.OutlineColor = Color3.fromRGB(255, 100, 100)
-                end
+                hl.FillColor = isTeam and Color3.fromRGB(0, 200, 255) or Color3.fromRGB(255, 50, 50)
+                hl.OutlineColor = isTeam and Color3.fromRGB(0, 255, 255) or Color3.fromRGB(255, 100, 100)
             else
                 local hl = char:FindFirstChild("IsparloseHighlight")
                 if hl then hl:Destroy() end
@@ -759,7 +1070,6 @@ local function updateHighlights()
     end
 end
 
--- Рендер каждого кадра
 RunService.RenderStepped:Connect(function()
     updateHighlights()
     
@@ -768,38 +1078,31 @@ RunService.RenderStepped:Connect(function()
     
     for _, player in ipairs(Players:GetPlayers()) do
         if player ~= LocalPlayer then
-            if not espElements[player] then
-                createEspBox(player)
-            end
+            if not espElements[player] then createEspBox(player) end
             
             local elements = espElements[player]
             local char = player.Character
             local hum = char and char:FindFirstChildOfClass("Humanoid")
             local hrp = char and char:FindFirstChild("HumanoidRootPart")
             local isTeam = isTeammate(player)
-            
             local isAlive = char and hum and hrp and hum.Health > 0
             
             if isAlive then
-                -- BOX ESP С ТОЧНОЙ 3D ПРОЕКЦИЕЙ
-                local showBox = Config.BoxESP and (not isTeam or Config.BoxTeammates)
-                
-                if showBox then
+                -- BOX ESP
+                if Config.BoxESP and (not isTeam or Config.BoxTeammates) then
                     local x, y, w, h = getCharacterBoxBounds(char)
-                    
                     if x and y and w and h then
                         elements.Box.Position = UDim2.new(0, x, 0, y)
                         elements.Box.Size = UDim2.new(0, w, 0, h)
                         elements.Box.Visible = true
-                        
                         elements.Outline.Color = isTeam and Color3.fromRGB(0, 200, 255) or Config.BoxColor
                         
                         if Config.ShowHP then
                             elements.HpBg.Visible = true
-                            local healthPercent = math.clamp(hum.Health / hum.MaxHealth, 0, 1)
-                            elements.HpFill.Size = UDim2.new(1, 0, healthPercent, 0)
-                            elements.HpFill.Position = UDim2.new(0, 0, 1 - healthPercent, 0)
-                            elements.HpFill.BackgroundColor3 = Color3.fromRGB(0, 255, 100):Lerp(Color3.fromRGB(255, 50, 50), 1 - healthPercent)
+                            local hpPct = math.clamp(hum.Health / hum.MaxHealth, 0, 1)
+                            elements.HpFill.Size = UDim2.new(1, 0, hpPct, 0)
+                            elements.HpFill.Position = UDim2.new(0, 0, 1 - hpPct, 0)
+                            elements.HpFill.BackgroundColor3 = Color3.fromRGB(0, 255, 100):Lerp(Color3.fromRGB(255, 50, 50), 1 - hpPct)
                         else
                             elements.HpBg.Visible = false
                         end
@@ -817,19 +1120,13 @@ RunService.RenderStepped:Connect(function()
                     elements.Box.Visible = false
                 end
                 
-                -- СТРЕЛКИ НА ПРОТИВНИКОВ
-                local showArrow = Config.ArrowsESP and (isTeam or Config.ArrowEnemies)
-                
-                if showArrow then
+                -- ARROWS ESP
+                if Config.ArrowsESP and (isTeam or Config.ArrowEnemies) then
                     local camCFrame = Camera.CFrame
                     local targetPos = hrp.Position
-                    
                     local dir = (targetPos - camCFrame.Position).Unit
-                    local look = camCFrame.LookVector
-                    local right = camCFrame.RightVector
-                    
-                    local dotFwd = look:Dot(dir)
-                    local dotRight = right:Dot(dir)
+                    local dotFwd = camCFrame.LookVector:Dot(dir)
+                    local dotRight = camCFrame.RightVector:Dot(dir)
                     
                     local angle = math.atan2(dotRight, dotFwd)
                     local radius = Config.ArrowRadius
