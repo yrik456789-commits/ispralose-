@@ -1,5 +1,5 @@
 -- ======================================================
--- Isparlose Hub | Advanced Visuals & ESP Script
+-- Isparlose Hub | Advanced Visuals & ESP Script (v2.0)
 -- ======================================================
 
 local Players = game:GetService("Players")
@@ -17,13 +17,14 @@ local Config = {
     OutlineTeammates = false,
     
     BoxESP = false,
+    BoxTeammates = false, -- Добавлена галочка для тиммейтов
     BoxColor = Color3.fromRGB(255, 255, 255),
     ShowHP = true,
     ShowWeapon = true,
     
     ArrowsESP = false,
-    ArrowColor = Color3.fromRGB(45, 45, 50), -- Серо-черный стиль
-    ArrowRadius = 160
+    ArrowColor = Color3.fromRGB(45, 45, 50), -- Серо-черная стрелочка
+    ArrowRadius = 180
 }
 
 -- Выбор родителя для GUI (CoreGui или PlayerGui)
@@ -35,7 +36,7 @@ if not ParentGui then
     ParentGui = LocalPlayer:WaitForChild("PlayerGui")
 end
 
--- Удаляем старое окно, если оно существовало
+-- Удаляем старое окно при перезапуске
 if ParentGui:FindFirstChild("IsparloseGui") then
     ParentGui.IsparloseGui:Destroy()
 end
@@ -47,7 +48,7 @@ ScreenGui.ResetOnSpawn = false
 ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 ScreenGui.Parent = ParentGui
 
--- Размеры главного окна и интро
+-- Размеры главного окна и интро (560x380)
 local UI_SIZE = UDim2.new(0, 560, 0, 380)
 local UI_POS = UDim2.new(0.5, -280, 0.5, -190)
 
@@ -139,7 +140,7 @@ MainStroke.Color = Color3.fromRGB(45, 45, 60)
 MainStroke.Thickness = 1
 MainStroke.Parent = MainFrame
 
--- Шапка окна (Topbar)
+-- Topbar (Шапка)
 local Topbar = Instance.new("Frame")
 Topbar.Size = UDim2.new(1, 0, 0, 40)
 Topbar.BackgroundColor3 = Color3.fromRGB(13, 13, 17)
@@ -161,7 +162,7 @@ TopbarTitle.TextColor3 = Color3.fromRGB(240, 240, 250)
 TopbarTitle.TextXAlignment = Enum.TextXAlignment.Left
 TopbarTitle.Parent = Topbar
 
--- Логика перетаскивания мышкой (Drag Window)
+-- Перетаскивание меню (Drag Window)
 local dragging, dragInput, dragStart, startPos
 Topbar.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 then
@@ -195,7 +196,7 @@ Sidebar.BackgroundColor3 = Color3.fromRGB(13, 13, 17)
 Sidebar.BorderSizePixel = 0
 Sidebar.Parent = MainFrame
 
--- Перегородка (Vertical Divider)
+-- Перегородка
 local Divider = Instance.new("Frame")
 Divider.Size = UDim2.new(0, 1, 1, -40)
 Divider.Position = UDim2.new(0, 140, 0, 40)
@@ -203,7 +204,7 @@ Divider.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
 Divider.BorderSizePixel = 0
 Divider.Parent = MainFrame
 
--- Правая панель функций (Right Content Panel)
+-- Правая панель функций
 local ContentPanel = Instance.new("Frame")
 ContentPanel.Size = UDim2.new(1, -141, 1, -40)
 ContentPanel.Position = UDim2.new(0, 141, 0, 40)
@@ -217,7 +218,7 @@ VisualsScroll.BackgroundTransparency = 1
 VisualsScroll.BorderSizePixel = 0
 VisualsScroll.ScrollBarThickness = 3
 VisualsScroll.ScrollBarImageColor3 = Color3.fromRGB(80, 80, 100)
-VisualsScroll.CanvasSize = UDim2.new(0, 0, 0, 440)
+VisualsScroll.CanvasSize = UDim2.new(0, 0, 0, 480)
 VisualsScroll.Parent = ContentPanel
 
 local UIListLayout = Instance.new("UIListLayout")
@@ -225,7 +226,7 @@ UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder
 UIListLayout.Padding = UDim.new(0, 8)
 UIListLayout.Parent = VisualsScroll
 
--- Кнопка Вкладки
+-- Вкладка
 local TabBtn = Instance.new("TextButton")
 TabBtn.Size = UDim2.new(1, -20, 0, 36)
 TabBtn.Position = UDim2.new(0, 10, 0, 10)
@@ -243,7 +244,7 @@ TabBtnCorner.CornerRadius = UDim.new(0, 6)
 TabBtnCorner.Parent = TabBtn
 
 ----------------------------------------------------
--- КОМПОНЕНТЫ ИНТЕРФЕЙСА (Заголовки и Галочки)
+-- КОМПОНЕНТЫ ИНТЕРФЕЙСА
 ----------------------------------------------------
 local function createSection(parent, titleText)
     local section = Instance.new("Frame")
@@ -343,6 +344,10 @@ createToggle(VisualsScroll, "Enable Boxes ESP", Config.BoxESP, function(val)
     Config.BoxESP = val
 end)
 
+createToggle(VisualsScroll, "   └─ Show Teammates Boxes", Config.BoxTeammates, function(val)
+    Config.BoxTeammates = val
+end)
+
 createToggle(VisualsScroll, "   └─ Show HP Bar (Left Green->Red)", Config.ShowHP, function(val)
     Config.ShowHP = val
 end)
@@ -358,7 +363,7 @@ createToggle(VisualsScroll, "Enable Offscreen Arrows", Config.ArrowsESP, functio
 end)
 
 ----------------------------------------------------
--- 3. ЗАПУСК ИНТРО И ПЛАВНЫЙ ПЕРЕХОД
+-- 3. ЗАПУСК ИНТРО
 ----------------------------------------------------
 task.spawn(function()
     TweenService:Create(IntroTitle, TweenInfo.new(0.8), {TextTransparency = 0}):Play()
@@ -366,11 +371,9 @@ task.spawn(function()
     TweenService:Create(IntroSub, TweenInfo.new(0.8), {TextTransparency = 0}):Play()
     TweenService:Create(ProgressBarBg, TweenInfo.new(0.5), {BackgroundTransparency = 0}):Play()
     
-    -- Анимация заполнения прогресс-бара
     TweenService:Create(ProgressBarFill, TweenInfo.new(1.4, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {Size = UDim2.new(1, 0, 1, 0)}):Play()
     task.wait(1.5)
     
-    -- Исчезновение интро
     TweenService:Create(IntroTitle, TweenInfo.new(0.3), {TextTransparency = 1}):Play()
     TweenService:Create(IntroSub, TweenInfo.new(0.3), {TextTransparency = 1}):Play()
     TweenService:Create(ProgressBarBg, TweenInfo.new(0.3), {BackgroundTransparency = 1}):Play()
@@ -379,7 +382,6 @@ task.spawn(function()
     
     IntroFrame:Destroy()
     
-    -- Плавный вывод Главного Меню (строго после интро)
     MainFrame.Visible = true
     MainFrame.BackgroundTransparency = 1
     MainFrame.Size = UDim2.new(0, 540, 0, 360)
@@ -393,14 +395,14 @@ task.spawn(function()
 end)
 
 ----------------------------------------------------
--- 4. ЛОГИКА РЕНДЕРА ESP И СТРЕЛОК (БЕЗ ЛАГОВ)
+-- 4. ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ (ОБРУДОВАНИЕ И 2D Bounding)
 ----------------------------------------------------
 
 local EspFolder = Instance.new("Folder")
 EspFolder.Name = "IsparloseESP"
 EspFolder.Parent = ScreenGui
 
--- Проверка на тиммейта
+-- Проверка на союзника
 local function isTeammate(player)
     if not player or player == LocalPlayer then return false end
     if LocalPlayer.Team and player.Team then
@@ -409,7 +411,165 @@ local function isTeammate(player)
     return false
 end
 
--- Обновление подсветки (Outline)
+-- Улучшенная функция определения оружия (Counter Blox + Стандарт)
+local function getEquippedWeaponName(player)
+    local char = player.Character
+    if not char then return "None" end
+    
+    -- 1. Поиск инструмента (Tool)
+    local tool = char:FindFirstChildOfClass("Tool")
+    if tool then return tool.Name end
+    
+    -- 2. Специальная проверка для Counter Blox (значения в персонаже)
+    local equippedVal = char:FindFirstChild("EquippedWeapon") or char:FindFirstChild("EquippedTool") or char:FindFirstChild("CurrentWeapon")
+    if equippedVal then
+        if equippedVal:IsA("StringValue") or equippedVal:IsA("ObjectValue") then
+            return tostring(equippedVal.Value)
+        end
+    end
+    
+    -- 3. Поиск моделей оружия, прикрепленных к персонажу
+    for _, child in ipairs(char:GetChildren()) do
+        if child:IsA("Model") and child.Name ~= "Head" then
+            if child:FindFirstChildOfClass("BasePart") or child:FindFirstChildOfClass("MeshPart") then
+                return child.Name
+            end
+        end
+    end
+
+    -- 4. Вспомогательная проверка через рюкзак/инвентарь
+    local equippedFolder = player:FindFirstChild("Equipped") or player:FindFirstChild("Backpack")
+    if equippedFolder then
+        local activeStr = equippedFolder:FindFirstChildOfClass("StringValue")
+        if activeStr then return activeStr.Value end
+    end
+    
+    return "Knife / Primary"
+end
+
+-- Расчет ТОЧНЫХ 2D границ тела игрока на экране
+local function getBoundingBox2D(char)
+    local minX, minY = math.huge, math.huge
+    local maxX, maxY = -math.huge, -math.huge
+    local anyOnScreen = false
+    
+    for _, part in ipairs(char:GetChildren()) do
+        if part:IsA("BasePart") then
+            local cf = part.CFrame
+            local size = part.Size / 2
+            
+            -- 8 углов хитбокса детали
+            local corners = {
+                cf * Vector3.new(-size.X, -size.Y, -size.Z),
+                cf * Vector3.new(-size.X, -size.Y, size.Z),
+                cf * Vector3.new(-size.X, size.Y, -size.Z),
+                cf * Vector3.new(-size.X, size.Y, size.Z),
+                cf * Vector3.new(size.X, -size.Y, -size.Z),
+                cf * Vector3.new(size.X, -size.Y, size.Z),
+                cf * Vector3.new(size.X, size.Y, -size.Z),
+                cf * Vector3.new(size.X, size.Y, size.Z),
+            }
+            
+            for _, corner in ipairs(corners) do
+                local screenPos, onScreen = Camera:WorldToViewportPoint(corner)
+                if onScreen then
+                    anyOnScreen = true
+                end
+                minX = math.min(minX, screenPos.X)
+                minY = math.min(minY, screenPos.Y)
+                maxX = math.max(maxX, screenPos.X)
+                maxY = math.max(maxY, screenPos.Y)
+            end
+        end
+    end
+    
+    if anyOnScreen and minX < maxX and minY < maxY then
+        return Vector2.new(minX, minY), Vector2.new(maxX - minX, maxY - minY), true
+    end
+    
+    return nil, nil, false
+end
+
+----------------------------------------------------
+-- 5. МЕНЕДЖЕР ESP И ЦИКЛ OРЕНДЕРА
+----------------------------------------------------
+local espElements = {}
+
+local function createEspBox(player)
+    local boxFrame = Instance.new("Frame")
+    boxFrame.Name = "Box_" .. player.Name
+    boxFrame.BackgroundTransparency = 1
+    boxFrame.BorderSizePixel = 0
+    boxFrame.Visible = false
+    boxFrame.Parent = EspFolder
+
+    local boxOutline = Instance.new("UIStroke")
+    boxOutline.Color = Color3.fromRGB(255, 255, 255)
+    boxOutline.Thickness = 1.5
+    boxOutline.Parent = boxFrame
+
+    -- Полоска HP (Слева)
+    local hpBg = Instance.new("Frame")
+    hpBg.Name = "HpBg"
+    hpBg.Size = UDim2.new(0, 3, 1, 0)
+    hpBg.Position = UDim2.new(0, -6, 0, 0)
+    hpBg.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+    hpBg.BorderSizePixel = 0
+    hpBg.Parent = boxFrame
+
+    local hpFill = Instance.new("Frame")
+    hpFill.Name = "HpFill"
+    hpFill.Size = UDim2.new(1, 0, 1, 0)
+    hpFill.Position = UDim2.new(0, 0, 0, 0)
+    hpFill.BackgroundColor3 = Color3.fromRGB(0, 255, 100)
+    hpFill.BorderSizePixel = 0
+    hpFill.Parent = hpBg
+
+    -- Название оружия (Снизу)
+    local weaponLabel = Instance.new("TextLabel")
+    weaponLabel.Name = "WeaponLabel"
+    weaponLabel.Size = UDim2.new(1, 40, 0, 14)
+    weaponLabel.Position = UDim2.new(0, -20, 1, 3)
+    weaponLabel.BackgroundTransparency = 1
+    weaponLabel.Font = Enum.Font.GothamBold
+    weaponLabel.TextSize = 10
+    weaponLabel.TextColor3 = Color3.fromRGB(240, 240, 240)
+    weaponLabel.TextStrokeTransparency = 0.3
+    weaponLabel.Text = ""
+    weaponLabel.Parent = boxFrame
+
+    -- Стрелочка направления (Размер увеличен до 32x32!)
+    local arrow = Instance.new("ImageLabel")
+    arrow.Name = "Arrow_" .. player.Name
+    arrow.Size = UDim2.new(0, 32, 0, 32)
+    arrow.AnchorPoint = Vector2.new(0.5, 0.5)
+    arrow.BackgroundTransparency = 1
+    arrow.Image = "rbxassetid://6034818372" -- Четкая стрелка
+    arrow.ImageColor3 = Config.ArrowColor
+    arrow.Visible = false
+    arrow.Parent = EspFolder
+
+    espElements[player] = {
+        Box = boxFrame,
+        Outline = boxOutline,
+        HpBg = hpBg,
+        HpFill = hpFill,
+        Weapon = weaponLabel,
+        Arrow = arrow
+    }
+end
+
+local function removeEspBox(player)
+    if espElements[player] then
+        if espElements[player].Box then espElements[player].Box:Destroy() end
+        if espElements[player].Arrow then espElements[player].Arrow:Destroy() end
+        espElements[player] = nil
+    end
+end
+
+Players.PlayerRemoving:Connect(removeEspBox)
+
+-- Обновление силуэта (Outline ESP)
 local function updateHighlights()
     for _, player in ipairs(Players:GetPlayers()) do
         if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
@@ -445,84 +605,7 @@ local function updateHighlights()
     end
 end
 
--- Элементы 2D Боксов и Стрелок
-local espElements = {}
-
-local function createEspBox(player)
-    local boxFrame = Instance.new("Frame")
-    boxFrame.Name = "Box_" .. player.Name
-    boxFrame.BackgroundTransparency = 1
-    boxFrame.BorderSizePixel = 0
-    boxFrame.Visible = false
-    boxFrame.Parent = EspFolder
-
-    local boxOutline = Instance.new("UIStroke")
-    boxOutline.Color = Color3.fromRGB(255, 255, 255)
-    boxOutline.Thickness = 1.5
-    boxOutline.Parent = boxFrame
-
-    -- Полоска HP (Слева)
-    local hpBg = Instance.new("Frame")
-    hpBg.Name = "HpBg"
-    hpBg.Size = UDim2.new(0, 3, 1, 0)
-    hpBg.Position = UDim2.new(0, -7, 0, 0)
-    hpBg.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-    hpBg.BorderSizePixel = 0
-    hpBg.Parent = boxFrame
-
-    local hpFill = Instance.new("Frame")
-    hpFill.Name = "HpFill"
-    hpFill.Size = UDim2.new(1, 0, 1, 0)
-    hpFill.Position = UDim2.new(0, 0, 0, 0)
-    hpFill.BackgroundColor3 = Color3.fromRGB(0, 255, 100)
-    hpFill.BorderSizePixel = 0
-    hpFill.Parent = hpBg
-
-    -- Название оружия (Снизу)
-    local weaponLabel = Instance.new("TextLabel")
-    weaponLabel.Name = "WeaponLabel"
-    weaponLabel.Size = UDim2.new(1, 40, 0, 14)
-    weaponLabel.Position = UDim2.new(0, -20, 1, 3)
-    weaponLabel.BackgroundTransparency = 1
-    weaponLabel.Font = Enum.Font.GothamBold
-    weaponLabel.TextSize = 10
-    weaponLabel.TextColor3 = Color3.fromRGB(240, 240, 240)
-    weaponLabel.TextStrokeTransparency = 0.3
-    weaponLabel.Text = ""
-    weaponLabel.Parent = boxFrame
-
-    -- Стрелочка направления
-    local arrow = Instance.new("ImageLabel")
-    arrow.Name = "Arrow_" .. player.Name
-    arrow.Size = UDim2.new(0, 16, 0, 16)
-    arrow.AnchorPoint = Vector2.new(0.5, 0.5)
-    arrow.BackgroundTransparency = 1
-    arrow.Image = "rbxassetid://6034818372" -- Аккуратная минималистичная стрелка
-    arrow.ImageColor3 = Config.ArrowColor
-    arrow.Visible = false
-    arrow.Parent = EspFolder
-
-    espElements[player] = {
-        Box = boxFrame,
-        Outline = boxOutline,
-        HpBg = hpBg,
-        HpFill = hpFill,
-        Weapon = weaponLabel,
-        Arrow = arrow
-    }
-end
-
-local function removeEspBox(player)
-    if espElements[player] then
-        if espElements[player].Box then espElements[player].Box:Destroy() end
-        if espElements[player].Arrow then espElements[player].Arrow:Destroy() end
-        espElements[player] = nil
-    end
-end
-
-Players.PlayerRemoving:Connect(removeEspBox)
-
--- Главный цикл рендера кадра
+-- Главный поток RenderStepped
 RunService.RenderStepped:Connect(function()
     updateHighlights()
     
@@ -544,47 +627,45 @@ RunService.RenderStepped:Connect(function()
             local isAlive = char and hum and hrp and hum.Health > 0
             
             if isAlive then
-                local screenPos, onScreen = Camera:WorldToViewportPoint(hrp.Position)
+                -- РЕНДЕР BOX ESP (Точный хитбокс тела)
+                local showBox = Config.BoxESP and (not isTeam or Config.BoxTeammates)
                 
-                -- РЕНДЕР BOX ESP
-                if Config.BoxESP and onScreen then
-                    local head = char:FindFirstChild("Head")
-                    local topPos = Camera:WorldToViewportPoint((head and head.Position + Vector3.new(0, 0.8, 0)) or hrp.Position + Vector3.new(0, 3, 0))
-                    local bottomPos = Camera:WorldToViewportPoint(hrp.Position - Vector3.new(0, 3.2, 0))
+                if showBox then
+                    local pos2D, size2D, onScreen = getBoundingBox2D(char)
                     
-                    local height = math.abs(topPos.Y - bottomPos.Y)
-                    local width = height * 0.6
-                    
-                    elements.Box.Size = UDim2.new(0, width, 0, height)
-                    elements.Box.Position = UDim2.new(0, screenPos.X - width/2, 0, topPos.Y)
-                    elements.Box.Visible = true
-                    
-                    elements.Outline.Color = isTeam and Color3.fromRGB(0, 200, 255) or Config.BoxColor
-                    
-                    -- РЕНДЕР HP BAR (Плавная смена Green -> Red)
-                    if Config.ShowHP then
-                        elements.HpBg.Visible = true
-                        local healthPercent = math.clamp(hum.Health / hum.MaxHealth, 0, 1)
-                        elements.HpFill.Size = UDim2.new(1, 0, healthPercent, 0)
-                        elements.HpFill.Position = UDim2.new(0, 0, 1 - healthPercent, 0)
-                        elements.HpFill.BackgroundColor3 = Color3.fromRGB(0, 255, 100):Lerp(Color3.fromRGB(255, 50, 50), 1 - healthPercent)
+                    if onScreen and pos2D and size2D then
+                        elements.Box.Position = UDim2.new(0, pos2D.X, 0, pos2D.Y)
+                        elements.Box.Size = UDim2.new(0, size2D.X, 0, size2D.Y)
+                        elements.Box.Visible = true
+                        
+                        elements.Outline.Color = isTeam and Color3.fromRGB(0, 200, 255) or Config.BoxColor
+                        
+                        -- РЕНДЕР HP BAR (Плавный градиент Green -> Red)
+                        if Config.ShowHP then
+                            elements.HpBg.Visible = true
+                            local healthPercent = math.clamp(hum.Health / hum.MaxHealth, 0, 1)
+                            elements.HpFill.Size = UDim2.new(1, 0, healthPercent, 0)
+                            elements.HpFill.Position = UDim2.new(0, 0, 1 - healthPercent, 0)
+                            elements.HpFill.BackgroundColor3 = Color3.fromRGB(0, 255, 100):Lerp(Color3.fromRGB(255, 50, 50), 1 - healthPercent)
+                        else
+                            elements.HpBg.Visible = false
+                        end
+                        
+                        -- РЕНДЕР ОРУЖИЯ (Исправлено)
+                        if Config.ShowWeapon then
+                            elements.Weapon.Visible = true
+                            elements.Weapon.Text = getEquippedWeaponName(player)
+                        else
+                            elements.Weapon.Visible = false
+                        end
                     else
-                        elements.HpBg.Visible = false
-                    end
-                    
-                    -- РЕНДЕР ОРУЖИЯ
-                    if Config.ShowWeapon then
-                        elements.Weapon.Visible = true
-                        local tool = char:FindFirstChildOfClass("Tool")
-                        elements.Weapon.Text = tool and tool.Name or "[ Bare Hands ]"
-                    else
-                        elements.Weapon.Visible = false
+                        elements.Box.Visible = false
                     end
                 else
                     elements.Box.Visible = false
                 end
                 
-                -- РЕНДЕР СТРЕЛОК (Offscreen Arrows)
+                -- РЕНДЕР БОЛЬШИХ СТРЕЛОК (Offscreen Arrows)
                 if Config.ArrowsESP then
                     local camCFrame = Camera.CFrame
                     local targetPos = hrp.Position
