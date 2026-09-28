@@ -1,5 +1,5 @@
 -- ======================================================
--- Isparlose Hub | Advanced Visuals, ESP & Misc (v3.0)
+-- Isparlose Hub | Advanced Visuals, ESP & Misc (v3.1 Fix)
 -- ======================================================
 
 local Players = game:GetService("Players")
@@ -25,7 +25,7 @@ local Config = {
     ShowWeapon = true,
     
     ArrowsESP = false,
-    ArrowEnemies = true, -- Подвкладка стрелочек на противников
+    ArrowEnemies = true,
     ArrowColor = Color3.fromRGB(50, 50, 55),
     ArrowRadius = 180,
     
@@ -420,7 +420,6 @@ end
 ----------------------------------------------------
 -- НАПОЛНЕНИЕ ВКЛАДОК
 ----------------------------------------------------
--- Visuals Tab
 createSection(VisualsScroll, "1. Outline ESP")
 createToggle(VisualsScroll, "Enable Outline ESP", Config.OutlineESP, function(val) Config.OutlineESP = val end)
 createToggle(VisualsScroll, "   └─ Show Teammates Outline", Config.OutlineTeammates, function(val) Config.OutlineTeammates = val end)
@@ -442,7 +441,6 @@ createButton(VisualsScroll, "   └─ Tracer Color: [ Neon Cyan ]", function(bt
     btn.Text = "   └─ Tracer Color: [ " .. Config.TracerColorNames[Config.TracerColorIndex] .. " ]"
 end)
 
--- Misc Tab
 createSection(MiscScroll, "1. Player Modifications")
 createToggle(MiscScroll, "No Molotov Damage", Config.AntiMolotov, function(val) Config.AntiMolotov = val end)
 createToggle(MiscScroll, "Noclip", Config.Noclip, function(val) Config.Noclip = val end)
@@ -508,30 +506,23 @@ local function getEquippedWeaponName(player)
         end
     end
     
-    for _, child in ipairs(char:GetChildren()) do
-        if child:IsA("Model") and child.Name ~= "Head" then
-            if child:FindFirstChildOfClass("BasePart") or child:FindFirstChildOfClass("MeshPart") then
-                return child.Name
-            end
-        end
-    end
-    
     return "Primary / Knife"
 end
 
 ----------------------------------------------------
--- 5. ТРЕЙСЕРЫ ПУЛЬ С АДАПТАЦИЕЙ ПОД ПИНГ
+-- 5. ТРЕЙСЕРЫ ПУЛЬ (ФИКСИРОВАННЫЙ СПАВН)
 ----------------------------------------------------
 local function createTracer(fromPos, toPos)
     if not Config.BulletTracers then return end
     
-    -- Расчет текущего пинга
     local ping = 0.04
     pcall(function()
         ping = Stats.Network.ServerStatsItem["Data Ping"]:GetValue() / 1000
     end)
     
     local distance = (toPos - fromPos).Magnitude
+    if distance < 1 then return end
+    
     local tracerPart = Instance.new("Part")
     tracerPart.Name = "IsparloseTracer"
     tracerPart.Anchored = true
@@ -540,13 +531,10 @@ local function createTracer(fromPos, toPos)
     tracerPart.Color = Config.TracerColors[Config.TracerColorIndex]
     tracerPart.Transparency = 0.1
     tracerPart.Size = Vector3.new(0.12, 0.12, distance)
-    
-    -- Позиционирование 3D-линии
     tracerPart.CFrame = CFrame.new(fromPos:Lerp(toPos, 0.5), toPos)
     tracerPart.Parent = workspace
     
-    -- Плавное угасание с учетом пинга
-    local duration = 0.35 + math.clamp(ping, 0, 0.3)
+    local duration = 0.35 + math.clamp(ping, 0, 0.25)
     TweenService:Create(tracerPart, TweenInfo.new(duration), {
         Transparency = 1,
         Size = Vector3.new(0.01, 0.01, distance)
@@ -557,20 +545,29 @@ local function createTracer(fromPos, toPos)
     end)
 end
 
--- Отслеживание выстрела
-UserInputService.InputBegan:Connect(function(input, gameProcessed)
-    if gameProcessed then return end
+-- Обработка выстрелов (без блокировки gameProcessed)
+UserInputService.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 and Config.BulletTracers then
         local char = LocalPlayer.Character
-        if char then
-            local tool = char:FindFirstChildOfClass("Tool")
-            if tool or char:FindFirstChild("EquippedWeapon") then
-                local mouse = LocalPlayer:GetMouse()
-                local muzzlePos = Camera.CFrame.Position - Vector3.new(0, 0.4, 0)
-                if char:FindFirstChild("HumanoidRootPart") then
-                    muzzlePos = char.HumanoidRootPart.Position + (Camera.CFrame.LookVector * 2)
+        if char and char:FindFirstChild("HumanoidRootPart") then
+            local mouse = LocalPlayer:GetMouse()
+            local targetPos = mouse.Hit and mouse.Hit.Position
+            
+            if targetPos then
+                local muzzlePos
+                local tool = char:FindFirstChildOfClass("Tool")
+                
+                if tool and tool:FindFirstChild("Handle") then
+                    muzzlePos = tool.Handle.Position
+                elseif char:FindFirstChild("RightHand") then
+                    muzzlePos = char.RightHand.Position
+                elseif char:FindFirstChild("Right Arm") then
+                    muzzlePos = char["Right Arm"].Position
+                else
+                    muzzlePos = Camera.CFrame.Position - Vector3.new(0, 0.4, 0)
                 end
-                createTracer(muzzlePos, mouse.Hit.Position)
+                
+                createTracer(muzzlePos, targetPos)
             end
         end
     end
@@ -579,7 +576,6 @@ end)
 ----------------------------------------------------
 -- 6. ЛОГИКА MISC (NO MOLOTOV & NOCLIP)
 ----------------------------------------------------
--- No Molotov Damage
 RunService.Heartbeat:Connect(function()
     if Config.AntiMolotov then
         for _, obj in ipairs(workspace:GetDescendants()) do
@@ -593,7 +589,6 @@ RunService.Heartbeat:Connect(function()
     end
 end)
 
--- Noclip
 RunService.Stepped:Connect(function()
     if Config.Noclip and LocalPlayer.Character then
         for _, part in ipairs(LocalPlayer.Character:GetDescendants()) do
@@ -605,7 +600,51 @@ RunService.Stepped:Connect(function()
 end)
 
 ----------------------------------------------------
--- 7. МЕНЕДЖЕР ESP И ОБНОВЛЕНИЕ КАДРА
+-- 7. ТОЧНЫЙ 3D BOUNDING BOX РАСЧЕТ ДЛЯ BOX ESP
+----------------------------------------------------
+local function getCharacterBoxBounds(char)
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    if not hrp then return nil end
+    
+    local cf = hrp.CFrame
+    -- Размер модели хитбокса игрока в 3D
+    local size = Vector3.new(3.8, 5.8, 2.5)
+    
+    -- 8 углов персонажа
+    local corners = {
+        cf * Vector3.new(-size.X/2,  size.Y/2 - 0.2, -size.Z/2),
+        cf * Vector3.new( size.X/2,  size.Y/2 - 0.2, -size.Z/2),
+        cf * Vector3.new(-size.X/2, -size.Y/2 - 0.2, -size.Z/2),
+        cf * Vector3.new( size.X/2, -size.Y/2 - 0.2, -size.Z/2),
+        cf * Vector3.new(-size.X/2,  size.Y/2 - 0.2,  size.Z/2),
+        cf * Vector3.new( size.X/2,  size.Y/2 - 0.2,  size.Z/2),
+        cf * Vector3.new(-size.X/2, -size.Y/2 - 0.2,  size.Z/2),
+        cf * Vector3.new( size.X/2, -size.Y/2 - 0.2,  size.Z/2),
+    }
+    
+    local minX, minY = math.huge, math.huge
+    local maxX, maxY = -math.huge, -math.huge
+    local anyOnScreen = false
+    
+    for _, pos in ipairs(corners) do
+        local screenPos, onScreen = Camera:WorldToViewportPoint(pos)
+        if screenPos.Z > 0 then
+            anyOnScreen = true
+            minX = math.min(minX, screenPos.X)
+            minY = math.min(minY, screenPos.Y)
+            maxX = math.max(maxX, screenPos.X)
+            maxY = math.max(maxY, screenPos.Y)
+        end
+    end
+    
+    if anyOnScreen and minX < maxX and minY < maxY then
+        return minX, minY, maxX - minX, maxY - minY
+    end
+    return nil
+end
+
+----------------------------------------------------
+-- 8. МЕНЕДЖЕР ESP И ОБНОВЛЕНИЕ КАДРА
 ----------------------------------------------------
 local espElements = {}
 
@@ -622,7 +661,6 @@ local function createEspBox(player)
     boxOutline.Thickness = 1.5
     boxOutline.Parent = boxFrame
 
-    -- Полоска HP
     local hpBg = Instance.new("Frame")
     hpBg.Name = "HpBg"
     hpBg.Size = UDim2.new(0, 3, 1, 0)
@@ -639,7 +677,6 @@ local function createEspBox(player)
     hpFill.BorderSizePixel = 0
     hpFill.Parent = hpBg
 
-    -- Оружие
     local weaponLabel = Instance.new("TextLabel")
     weaponLabel.Name = "WeaponLabel"
     weaponLabel.Size = UDim2.new(1, 40, 0, 14)
@@ -652,7 +689,6 @@ local function createEspBox(player)
     weaponLabel.Text = ""
     weaponLabel.Parent = boxFrame
 
-    -- Объемная перевернутая стрелочка
     local arrow = Instance.new("ImageLabel")
     arrow.Name = "Arrow_" .. player.Name
     arrow.Size = UDim2.new(0, 34, 0, 34)
@@ -723,7 +759,7 @@ local function updateHighlights()
     end
 end
 
--- Рендер кадра
+-- Рендер каждого кадра
 RunService.RenderStepped:Connect(function()
     updateHighlights()
     
@@ -740,28 +776,20 @@ RunService.RenderStepped:Connect(function()
             local char = player.Character
             local hum = char and char:FindFirstChildOfClass("Humanoid")
             local hrp = char and char:FindFirstChild("HumanoidRootPart")
-            local head = char and char:FindFirstChild("Head")
             local isTeam = isTeammate(player)
             
-            local isAlive = char and hum and hrp and head and hum.Health > 0
+            local isAlive = char and hum and hrp and hum.Health > 0
             
             if isAlive then
-                -- ФИКСИРОВАННЫЙ BOX ESP (Точная привязка к телу при поворотах камеры)
+                -- BOX ESP С ТОЧНОЙ 3D ПРОЕКЦИЕЙ
                 local showBox = Config.BoxESP and (not isTeam or Config.BoxTeammates)
                 
                 if showBox then
-                    local headWorldPos = head.Position + Vector3.new(0, 0.6, 0)
-                    local feetWorldPos = hrp.Position - Vector3.new(0, 3.0, 0)
+                    local x, y, w, h = getCharacterBoxBounds(char)
                     
-                    local headPos, headOnScreen = Camera:WorldToViewportPoint(headWorldPos)
-                    local feetPos, feetOnScreen = Camera:WorldToViewportPoint(feetWorldPos)
-                    
-                    if headPos.Z > 0 then
-                        local height = math.abs(feetPos.Y - headPos.Y)
-                        local width = height * 0.62
-                        
-                        elements.Box.Position = UDim2.new(0, headPos.X - (width / 2), 0, headPos.Y)
-                        elements.Box.Size = UDim2.new(0, width, 0, height)
+                    if x and y and w and h then
+                        elements.Box.Position = UDim2.new(0, x, 0, y)
+                        elements.Box.Size = UDim2.new(0, w, 0, h)
                         elements.Box.Visible = true
                         
                         elements.Outline.Color = isTeam and Color3.fromRGB(0, 200, 255) or Config.BoxColor
@@ -789,7 +817,7 @@ RunService.RenderStepped:Connect(function()
                     elements.Box.Visible = false
                 end
                 
-                -- ПЕРЕВЕРНУТЫЕ ОБЪЕМНЫЕ СТРЕЛКИ НА ПРОТИВНИКОВ
+                -- СТРЕЛКИ НА ПРОТИВНИКОВ
                 local showArrow = Config.ArrowsESP and (isTeam or Config.ArrowEnemies)
                 
                 if showArrow then
@@ -810,7 +838,6 @@ RunService.RenderStepped:Connect(function()
                     local arrowY = screenCenter.Y - math.cos(angle) * radius
                     
                     elements.Arrow.Position = UDim2.new(0, arrowX, 0, arrowY)
-                    -- Поворот перевернут (+180 градусов), чтобы стрелочка указывала на цель
                     elements.Arrow.Rotation = math.deg(angle) + 180
                     elements.Arrow.ImageColor3 = isTeam and Color3.fromRGB(0, 180, 255) or Config.ArrowColor
                     elements.Arrow.Visible = true
