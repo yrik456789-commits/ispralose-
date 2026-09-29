@@ -1,5 +1,5 @@
 -- ======================================================
--- Isparlose Hub | Visuals, ESP, Misc & Config System (v3.2 fix)
+-- Isparlose Hub | Visuals, ESP, Sounds, Misc & Config (v3.2 fix)
 -- Script Language: Luau (Roblox)
 -- ======================================================
 
@@ -7,6 +7,7 @@ local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
+local SoundService = game:GetService("SoundService")
 local CoreGui = game:GetService("CoreGui")
 
 local LocalPlayer = Players.LocalPlayer
@@ -14,6 +15,7 @@ local Camera = workspace.CurrentCamera
 
 -- Главный конфиг
 local Config = {
+    -- Visuals
     OutlineESP = false,
     OutlineTeammates = false,
     
@@ -39,12 +41,44 @@ local Config = {
     },
     TracerColorNames = {"Neon Cyan", "Neon Red", "Neon Green", "Neon Purple", "Neon Yellow"},
 
+    -- Sounds / Audio
+    HitSound = false,
+    HitSoundTeammates = false,
+    HitSoundIndex = 1,
+    HitSoundVolumeIndex = 3,
+    HitVolumes = {0.2, 0.5, 0.8, 1.0},
+    HitVolumeNames = {"20%", "50%", "80%", "100%"},
+
+    -- Misc
     AntiMolotov = false,
     Noclip = false
 }
 
+-- Популярные звуки попадания CS2 / Gamesense
+local HitSoundList = {
+    {Name = "Skeet (Bell)", Id = 4817809188},
+    {Name = "Call of Duty", Id = 160432334},
+    {Name = "Bubble",       Id = 12221967},
+    {Name = "Metallic",     Id = 272426805},
+    {Name = "Neverlose",    Id = 8022830835}
+}
+
 local SavedConfigs = {}
 local SelectedConfigName = nil
+
+-- Функция воспроизведения звука
+local function playSound(soundId, volume)
+    task.spawn(function()
+        local sound = Instance.new("Sound")
+        sound.SoundId = "rbxassetid://" .. tostring(soundId)
+        sound.Volume = volume or 0.8
+        sound.Parent = SoundService
+        sound:Play()
+        sound.Ended:Connect(function()
+            sound:Destroy()
+        end)
+    end)
+end
 
 -- Родительский GUI
 local ParentGui = CoreGui
@@ -92,6 +126,7 @@ NotifText.ZIndex = 101
 NotifText.Parent = NotificationFrame
 
 local function showErrorNotification(msg)
+    playSound(138090596, 0.5) -- Звук ошибки
     NotifText.Text = msg or "нету текста"
     NotificationFrame.BackgroundTransparency = 0
     NotifText.TextTransparency = 0
@@ -263,112 +298,75 @@ ContentPanel.Position = UDim2.new(0, 141, 0, 40)
 ContentPanel.BackgroundTransparency = 1
 ContentPanel.Parent = MainFrame
 
--- Вкладки
-local VisualsScroll = Instance.new("ScrollingFrame")
-VisualsScroll.Size = UDim2.new(1, -20, 1, -20)
-VisualsScroll.Position = UDim2.new(0, 10, 0, 10)
-VisualsScroll.BackgroundTransparency = 1
-VisualsScroll.BorderSizePixel = 0
-VisualsScroll.ScrollBarThickness = 3
-VisualsScroll.ScrollBarImageColor3 = Color3.fromRGB(80, 80, 100)
-VisualsScroll.CanvasSize = UDim2.new(0, 0, 0, 560)
+-- Функция создания Scroll-контейнера для вкладок
+local function createTabScroll()
+    local scroll = Instance.new("ScrollingFrame")
+    scroll.Size = UDim2.new(1, -20, 1, -20)
+    scroll.Position = UDim2.new(0, 10, 0, 10)
+    scroll.BackgroundTransparency = 1
+    scroll.BorderSizePixel = 0
+    scroll.ScrollBarThickness = 3
+    scroll.ScrollBarImageColor3 = Color3.fromRGB(80, 80, 100)
+    scroll.CanvasSize = UDim2.new(0, 0, 0, 480)
+    scroll.Visible = false
+    scroll.Parent = ContentPanel
+    
+    local layout = Instance.new("UIListLayout")
+    layout.SortOrder = Enum.SortOrder.LayoutOrder
+    layout.Padding = UDim.new(0, 8)
+    layout.Parent = scroll
+    
+    return scroll
+end
+
+local VisualsScroll = createTabScroll()
 VisualsScroll.Visible = true
-VisualsScroll.Parent = ContentPanel
 
-local VisualsLayout = Instance.new("UIListLayout")
-VisualsLayout.SortOrder = Enum.SortOrder.LayoutOrder
-VisualsLayout.Padding = UDim.new(0, 8)
-VisualsLayout.Parent = VisualsScroll
-
-local MiscScroll = Instance.new("ScrollingFrame")
-MiscScroll.Size = UDim2.new(1, -20, 1, -20)
-MiscScroll.Position = UDim2.new(0, 10, 0, 10)
-MiscScroll.BackgroundTransparency = 1
-MiscScroll.BorderSizePixel = 0
-MiscScroll.ScrollBarThickness = 3
-MiscScroll.ScrollBarImageColor3 = Color3.fromRGB(80, 80, 100)
-MiscScroll.CanvasSize = UDim2.new(0, 0, 0, 300)
-MiscScroll.Visible = false
-MiscScroll.Parent = ContentPanel
-
-local MiscLayout = Instance.new("UIListLayout")
-MiscLayout.SortOrder = Enum.SortOrder.LayoutOrder
-MiscLayout.Padding = UDim.new(0, 8)
-MiscLayout.Parent = MiscScroll
-
-local ConfigScroll = Instance.new("ScrollingFrame")
-ConfigScroll.Size = UDim2.new(1, -20, 1, -20)
-ConfigScroll.Position = UDim2.new(0, 10, 0, 10)
-ConfigScroll.BackgroundTransparency = 1
-ConfigScroll.BorderSizePixel = 0
-ConfigScroll.ScrollBarThickness = 3
-ConfigScroll.ScrollBarImageColor3 = Color3.fromRGB(80, 80, 100)
-ConfigScroll.CanvasSize = UDim2.new(0, 0, 0, 420)
-ConfigScroll.Visible = false
-ConfigScroll.Parent = ContentPanel
-
-local ConfigLayout = Instance.new("UIListLayout")
-ConfigLayout.SortOrder = Enum.SortOrder.LayoutOrder
-ConfigLayout.Padding = UDim.new(0, 8)
-ConfigLayout.Parent = ConfigScroll
+local SoundsScroll = createTabScroll()
+local MiscScroll = createTabScroll()
+local ConfigScroll = createTabScroll()
 
 -- Кнопки в сайдбаре
-local TabVisualsBtn = Instance.new("TextButton")
-TabVisualsBtn.Size = UDim2.new(1, -20, 0, 36)
-TabVisualsBtn.Position = UDim2.new(0, 10, 0, 10)
+local function createTabBtn(text, posY)
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(1, -20, 0, 34)
+    btn.Position = UDim2.new(0, 10, 0, posY)
+    btn.BackgroundColor3 = Color3.fromRGB(16, 16, 22)
+    btn.Text = "  " .. text
+    btn.Font = Enum.Font.GothamBold
+    btn.TextSize = 11
+    btn.TextColor3 = Color3.fromRGB(140, 140, 160)
+    btn.TextXAlignment = Enum.TextXAlignment.Left
+    btn.AutoButtonColor = false
+    btn.Parent = Sidebar
+
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 6)
+    corner.Parent = btn
+    
+    return btn
+end
+
+local TabVisualsBtn = createTabBtn("VISUALS / ESP", 10)
 TabVisualsBtn.BackgroundColor3 = Color3.fromRGB(24, 24, 32)
-TabVisualsBtn.Text = "  VISUALS / ESP"
-TabVisualsBtn.Font = Enum.Font.GothamBold
-TabVisualsBtn.TextSize = 11
 TabVisualsBtn.TextColor3 = Color3.fromRGB(110, 86, 207)
-TabVisualsBtn.TextXAlignment = Enum.TextXAlignment.Left
-TabVisualsBtn.AutoButtonColor = false
-TabVisualsBtn.Parent = Sidebar
 
-local TabVisualsCorner = Instance.new("UICorner")
-TabVisualsCorner.CornerRadius = UDim.new(0, 6)
-TabVisualsCorner.Parent = TabVisualsBtn
-
-local TabMiscBtn = Instance.new("TextButton")
-TabMiscBtn.Size = UDim2.new(1, -20, 0, 36)
-TabMiscBtn.Position = UDim2.new(0, 10, 0, 54)
-TabMiscBtn.BackgroundColor3 = Color3.fromRGB(16, 16, 22)
-TabMiscBtn.Text = "  MISC"
-TabMiscBtn.Font = Enum.Font.GothamBold
-TabMiscBtn.TextSize = 11
-TabMiscBtn.TextColor3 = Color3.fromRGB(140, 140, 160)
-TabMiscBtn.TextXAlignment = Enum.TextXAlignment.Left
-TabMiscBtn.AutoButtonColor = false
-TabMiscBtn.Parent = Sidebar
-
-local TabMiscCorner = Instance.new("UICorner")
-TabMiscCorner.CornerRadius = UDim.new(0, 6)
-TabMiscCorner.Parent = TabMiscBtn
-
-local TabConfigBtn = Instance.new("TextButton")
-TabConfigBtn.Size = UDim2.new(1, -20, 0, 36)
-TabConfigBtn.Position = UDim2.new(0, 10, 0, 98)
-TabConfigBtn.BackgroundColor3 = Color3.fromRGB(16, 16, 22)
-TabConfigBtn.Text = "  CONFIG"
-TabConfigBtn.Font = Enum.Font.GothamBold
-TabConfigBtn.TextSize = 11
-TabConfigBtn.TextColor3 = Color3.fromRGB(140, 140, 160)
-TabConfigBtn.TextXAlignment = Enum.TextXAlignment.Left
-TabConfigBtn.AutoButtonColor = false
-TabConfigBtn.Parent = Sidebar
-
-local TabConfigCorner = Instance.new("UICorner")
-TabConfigCorner.CornerRadius = UDim.new(0, 6)
-TabConfigCorner.Parent = TabConfigBtn
+local TabSoundsBtn  = createTabBtn("SOUNDS / AUDIO", 50)
+local TabMiscBtn    = createTabBtn("MISC", 90)
+local TabConfigBtn  = createTabBtn("CONFIG", 130)
 
 local function switchTab(activeTab)
     VisualsScroll.Visible = (activeTab == "Visuals")
-    MiscScroll.Visible = (activeTab == "Misc")
-    ConfigScroll.Visible = (activeTab == "Config")
+    SoundsScroll.Visible  = (activeTab == "Sounds")
+    MiscScroll.Visible    = (activeTab == "Misc")
+    ConfigScroll.Visible  = (activeTab == "Config")
     
     TabVisualsBtn.BackgroundColor3 = (activeTab == "Visuals") and Color3.fromRGB(24, 24, 32) or Color3.fromRGB(16, 16, 22)
     TabVisualsBtn.TextColor3 = (activeTab == "Visuals") and Color3.fromRGB(110, 86, 207) or Color3.fromRGB(140, 140, 160)
     
+    TabSoundsBtn.BackgroundColor3 = (activeTab == "Sounds") and Color3.fromRGB(24, 24, 32) or Color3.fromRGB(16, 16, 22)
+    TabSoundsBtn.TextColor3 = (activeTab == "Sounds") and Color3.fromRGB(110, 86, 207) or Color3.fromRGB(140, 140, 160)
+
     TabMiscBtn.BackgroundColor3 = (activeTab == "Misc") and Color3.fromRGB(24, 24, 32) or Color3.fromRGB(16, 16, 22)
     TabMiscBtn.TextColor3 = (activeTab == "Misc") and Color3.fromRGB(110, 86, 207) or Color3.fromRGB(140, 140, 160)
     
@@ -377,6 +375,7 @@ local function switchTab(activeTab)
 end
 
 TabVisualsBtn.MouseButton1Click:Connect(function() switchTab("Visuals") end)
+TabSoundsBtn.MouseButton1Click:Connect(function() switchTab("Sounds") end)
 TabMiscBtn.MouseButton1Click:Connect(function() switchTab("Misc") end)
 TabConfigBtn.MouseButton1Click:Connect(function() switchTab("Config") end)
 
@@ -459,10 +458,11 @@ local function createToggle(parent, text, configKey, callback)
         local targetDotPos = state and UDim2.new(1, -15, 0.5, -6) or UDim2.new(0, 3, 0.5, -6)
         TweenService:Create(switchBg, TweenInfo.new(0.2), {BackgroundColor3 = targetBg}):Play()
         TweenService:Create(switchDot, TweenInfo.new(0.2), {Position = targetDotPos}):Play()
-        callback(state)
+        if callback then callback(state) end
     end
     
     switchBg.MouseButton1Click:Connect(function()
+        playSound(6895079853, 0.3)
         updateVisuals(not state)
     end)
     
@@ -490,44 +490,66 @@ local function createButton(parent, text, callback)
     btn.TextColor3 = Color3.fromRGB(220, 220, 230)
     btn.Parent = card
     
-    btn.MouseButton1Click:Connect(function() callback(btn) end)
+    btn.MouseButton1Click:Connect(function()
+        playSound(6895079853, 0.3)
+        callback(btn)
+    end)
     return card
 end
 
 ----------------------------------------------------
 -- НАПОЛНЕНИЕ ВКЛАДОК
 ----------------------------------------------------
--- Visuals
+-- 1. Visuals
 createSection(VisualsScroll, "1. Outline ESP")
-createToggle(VisualsScroll, "Enable Outline ESP", "OutlineESP", function() end)
-createToggle(VisualsScroll, "   └─ Show Teammates Outline", "OutlineTeammates", function() end)
+createToggle(VisualsScroll, "Enable Outline ESP", "OutlineESP")
+createToggle(VisualsScroll, "   └─ Show Teammates Outline", "OutlineTeammates")
 
 createSection(VisualsScroll, "2. Boxes ESP")
-createToggle(VisualsScroll, "Enable Boxes ESP", "BoxESP", function() end)
-createToggle(VisualsScroll, "   └─ Show Teammates Boxes", "BoxTeammates", function() end)
-createToggle(VisualsScroll, "   └─ Show HP Bar (Left Green->Red)", "ShowHP", function() end)
-createToggle(VisualsScroll, "   └─ Show Weapon Name (Bottom)", "ShowWeapon", function() end)
+createToggle(VisualsScroll, "Enable Boxes ESP", "BoxESP")
+createToggle(VisualsScroll, "   └─ Show Teammates Boxes", "BoxTeammates")
+createToggle(VisualsScroll, "   └─ Show HP Bar (Left Green->Red)", "ShowHP")
+createToggle(VisualsScroll, "   └─ Show Weapon Name (Bottom)", "ShowWeapon")
 
 createSection(VisualsScroll, "3. Directional Arrows")
-createToggle(VisualsScroll, "Enable Offscreen Arrows", "ArrowsESP", function() end)
-createToggle(VisualsScroll, "   └─ Show Enemies Arrows", "ArrowEnemies", function() end)
+createToggle(VisualsScroll, "Enable Offscreen Arrows", "ArrowsESP")
+createToggle(VisualsScroll, "   └─ Show Enemies Arrows", "ArrowEnemies")
 
 createSection(VisualsScroll, "4. Bullet Tracers")
-createToggle(VisualsScroll, "Enable Bullet Tracers", "BulletTracers", function() end)
+createToggle(VisualsScroll, "Enable Bullet Tracers", "BulletTracers")
 createButton(VisualsScroll, "   └─ Tracer Color: [ Neon Cyan ]", function(btn)
     Config.TracerColorIndex = Config.TracerColorIndex % #Config.TracerColors + 1
     btn.Text = "   └─ Tracer Color: [ " .. Config.TracerColorNames[Config.TracerColorIndex] .. " ]"
 end)
 
--- Misc
+-- 2. Sounds / Audio (НОВАЯ ВКЛАДКА)
+createSection(SoundsScroll, "1. Hit Sounds (CS2 Style)")
+createToggle(SoundsScroll, "Enable Hit Sound", "HitSound")
+createToggle(SoundsScroll, "   └─ Play On Teammates Damage", "HitSoundTeammates")
+
+createButton(SoundsScroll, "   └─ Hit Sound Style: [ Skeet (Bell) ]", function(btn)
+    Config.HitSoundIndex = Config.HitSoundIndex % #HitSoundList + 1
+    local selectedSound = HitSoundList[Config.HitSoundIndex]
+    btn.Text = "   └─ Hit Sound Style: [ " .. selectedSound.Name .. " ]"
+    -- Демонстрация звука при выборе
+    playSound(selectedSound.Id, Config.HitVolumes[Config.HitSoundVolumeIndex])
+end)
+
+createButton(SoundsScroll, "   └─ Hit Volume: [ 80% ]", function(btn)
+    Config.HitSoundVolumeIndex = Config.HitSoundVolumeIndex % #Config.HitVolumes + 1
+    btn.Text = "   └─ Hit Volume: [ " .. Config.HitVolumeNames[Config.HitSoundVolumeIndex] .. " ]"
+    local selectedSound = HitSoundList[Config.HitSoundIndex]
+    playSound(selectedSound.Id, Config.HitVolumes[Config.HitSoundVolumeIndex])
+end)
+
+-- 3. Misc
 createSection(MiscScroll, "1. Player Modifications")
-createToggle(MiscScroll, "No Molotov Damage", "AntiMolotov", function() end)
-createToggle(MiscScroll, "Noclip", "Noclip", function() end)
+createToggle(MiscScroll, "No Molotov Damage", "AntiMolotov")
+createToggle(MiscScroll, "Noclip", "Noclip")
 
 ----------------------------------------------------
 -- 4. ОПЦИИ И ОКНО КОНФИГОВ (CONFIG SYSTEM)
 ----------------------------------------------------
--- Модальное окно "Сохранить конфиг"
 local SaveModal = Instance.new("Frame")
 SaveModal.Name = "SaveModal"
 SaveModal.Size = UDim2.new(0, 320, 0, 150)
@@ -576,7 +598,6 @@ local InputCorner = Instance.new("UICorner")
 InputCorner.CornerRadius = UDim.new(0, 6)
 InputCorner.Parent = ConfigInput
 
--- Кнопки Отмена (слева) и ОК (справа)
 local CancelBtn = Instance.new("TextButton")
 CancelBtn.Size = UDim2.new(0.38, 0, 0, 32)
 CancelBtn.Position = UDim2.new(0.08, 0, 0.68, 0)
@@ -607,7 +628,6 @@ local OkCorner = Instance.new("UICorner")
 OkCorner.CornerRadius = UDim.new(0, 6)
 OkCorner.Parent = OkBtn
 
--- Контейнер подвкладки сохраненных конфигов
 local ConfigListFrame = Instance.new("Frame")
 ConfigListFrame.Size = UDim2.new(1, 0, 0, 140)
 ConfigListFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 28)
@@ -662,6 +682,7 @@ local function refreshConfigListUI()
         itemCorner.Parent = itemBtn
         
         itemBtn.MouseButton1Click:Connect(function()
+            playSound(6895079853, 0.3)
             SelectedConfigName = name
             SelectedLabel.Text = "Выбран конфиг: [ " .. name .. " ]"
             refreshConfigListUI()
@@ -681,6 +702,7 @@ createButton(ConfigScroll, "Загрузить конфиг", function()
         return
     end
     
+    playSound(602698205, 0.5)
     local data = SavedConfigs[SelectedConfigName]
     for key, value in pairs(data) do
         if Config[key] ~= nil then
@@ -694,8 +716,8 @@ end)
 
 createSection(ConfigScroll, "2. Сохраненные конфиги")
 
--- Логика модального окна сохранения
 CancelBtn.MouseButton1Click:Connect(function()
+    playSound(6895079853, 0.3)
     SaveModal.Visible = false
 end)
 
@@ -704,6 +726,7 @@ OkBtn.MouseButton1Click:Connect(function()
     if text == "" then
         showErrorNotification("нету текста")
     else
+        playSound(602698205, 0.5)
         local cfgData = {}
         for k, v in pairs(Config) do
             if type(v) ~= "table" then
@@ -719,7 +742,54 @@ OkBtn.MouseButton1Click:Connect(function()
 end)
 
 ----------------------------------------------------
--- 5. ИНТРО АНИМАЦИЯ
+-- 5. ЛОГИКА HIT SOUNDS (ОТСЛЕЖИВАНИЕ ПОПАДАНИЙ)
+----------------------------------------------------
+local function isTeammate(player)
+    if not player or player == LocalPlayer then return false end
+    if LocalPlayer.Team and player.Team then
+        return LocalPlayer.Team == player.Team
+    end
+    return false
+end
+
+local function attachHitSoundToPlayer(player)
+    if player == LocalPlayer then return end
+    
+    local function onCharacter(char)
+        local hum = char:WaitForChild("Humanoid", 5)
+        if hum then
+            local lastHealth = hum.Health
+            hum.HealthChanged:Connect(function(newHealth)
+                if newHealth < lastHealth then
+                    local damage = lastHealth - newHealth
+                    if damage > 0 and Config.HitSound then
+                        local isTeam = isTeammate(player)
+                        if not isTeam or Config.HitSoundTeammates then
+                            local myChar = LocalPlayer.Character
+                            if myChar and myChar:FindFirstChildOfClass("Humanoid") and myChar:FindFirstChildOfClass("Humanoid").Health > 0 then
+                                local soundData = HitSoundList[Config.HitSoundIndex]
+                                local vol = Config.HitVolumes[Config.HitSoundVolumeIndex] or 0.8
+                                if soundData then
+                                    playSound(soundData.Id, vol)
+                                end
+                            end
+                        end
+                    end
+                end
+                lastHealth = newHealth
+            end)
+        end
+    end
+    
+    if player.Character then onCharacter(player.Character) end
+    player.CharacterAdded:Connect(onCharacter)
+end
+
+for _, p in ipairs(Players:GetPlayers()) do attachHitSoundToPlayer(p) end
+Players.PlayerAdded:Connect(attachHitSoundToPlayer)
+
+----------------------------------------------------
+-- 6. ИНТРО АНИМАЦИЯ
 ----------------------------------------------------
 task.spawn(function()
     TweenService:Create(IntroTitle, TweenInfo.new(0.8), {TextTransparency = 0}):Play()
@@ -751,19 +821,11 @@ task.spawn(function()
 end)
 
 ----------------------------------------------------
--- 6. ВСПОМОГАТЕЛЬНЫЕ ПРОВЕРКИ
+-- 7. ВСПОМОГАТЕЛЬНЫЕ ПРОВЕРКИ DLYA TRACERS И UI
 ----------------------------------------------------
 local EspFolder = Instance.new("Folder")
 EspFolder.Name = "IsparloseESP"
 EspFolder.Parent = ScreenGui
-
-local function isTeammate(player)
-    if not player or player == LocalPlayer then return false end
-    if LocalPlayer.Team and player.Team then
-        return LocalPlayer.Team == player.Team
-    end
-    return false
-end
 
 local function getEquippedWeaponName(player)
     local char = player.Character
@@ -805,7 +867,7 @@ local function isMouseOverUI()
 end
 
 ----------------------------------------------------
--- 7. ТРЕЙСЕРЫ ПУЛЬ (ЗАЖИМ, ФИЛЬТР МАГАЗИНА И НОЖА)
+-- 8. ТРЕЙСЕРЫ ПУЛЬ (ЗАЖИМ, ФИЛЬТР МАГАЗИНА И НОЖА)
 ----------------------------------------------------
 local activeTracer = nil
 local activeTracerConn = nil
@@ -893,7 +955,7 @@ UserInputService.InputEnded:Connect(function(input)
 end)
 
 ----------------------------------------------------
--- 8. ЛОГИКА MISC (NO MOLOTOV & NOCLIP)
+-- 9. ЛОГИКА MISC (NO MOLOTOV & NOCLIP)
 ----------------------------------------------------
 RunService.Heartbeat:Connect(function()
     if Config.AntiMolotov then
@@ -919,7 +981,7 @@ RunService.Stepped:Connect(function()
 end)
 
 ----------------------------------------------------
--- 9. РАСЧЕТ ИДЕАЛЬНОГО 3D BOUNDING BOX
+-- 10. РАСЧЕТ ИДЕАЛЬНОГО 3D BOUNDING BOX
 ----------------------------------------------------
 local function getCharacterBoxBounds(char)
     if not char then return nil end
@@ -962,7 +1024,7 @@ local function getCharacterBoxBounds(char)
 end
 
 ----------------------------------------------------
--- 10. РЕНДЕР КАЖДОГО КАДРА (ESP)
+-- 11. РЕНДЕР КАЖДОГО КАДРА (ESP)
 ----------------------------------------------------
 local espElements = {}
 
