@@ -1,5 +1,5 @@
 -- ======================================================
--- Isparlose Hub | Visuals, ESP, Sounds, Misc & Config (v3.2 fix)
+-- Isparlose Hub | Visuals, ESP, Sounds, Misc & Config (v3.3)
 -- Script Language: Luau (Roblox)
 -- ======================================================
 
@@ -13,6 +13,32 @@ local CoreGui = game:GetService("CoreGui")
 local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
 
+-- Структуры костей для Skeleton ESP
+local R15_BONES = {
+    {"Head", "UpperTorso"},
+    {"UpperTorso", "LowerTorso"},
+    {"UpperTorso", "LeftUpperArm"},
+    {"LeftUpperArm", "LeftLowerArm"},
+    {"LeftLowerArm", "LeftHand"},
+    {"UpperTorso", "RightUpperArm"},
+    {"RightUpperArm", "RightLowerArm"},
+    {"RightLowerArm", "RightHand"},
+    {"LowerTorso", "LeftUpperLeg"},
+    {"LeftUpperLeg", "LeftLowerLeg"},
+    {"LeftLowerLeg", "LeftFoot"},
+    {"LowerTorso", "RightUpperLeg"},
+    {"RightUpperLeg", "RightLowerLeg"},
+    {"RightLowerLeg", "RightFoot"}
+}
+
+local R6_BONES = {
+    {"Head", "Torso"},
+    {"Torso", "Left Arm"},
+    {"Torso", "Right Arm"},
+    {"Torso", "Left Leg"},
+    {"Torso", "Right Leg"}
+}
+
 -- Главный конфиг
 local Config = {
     -- Visuals
@@ -24,6 +50,9 @@ local Config = {
     BoxColor = Color3.fromRGB(255, 255, 255),
     ShowHP = true,
     ShowWeapon = true,
+
+    SkeletonESP = false,
+    SkeletonTeammates = false,
     
     ArrowsESP = false,
     ArrowEnemies = true,
@@ -54,7 +83,7 @@ local Config = {
     Noclip = false
 }
 
--- Популярные звуки попадания CS2 / Gamesense
+-- Звуки попадания CS2 / Gamesense
 local HitSoundList = {
     {Name = "Skeet (Bell)", Id = 4817809188},
     {Name = "Call of Duty", Id = 160432334},
@@ -126,7 +155,7 @@ NotifText.ZIndex = 101
 NotifText.Parent = NotificationFrame
 
 local function showErrorNotification(msg)
-    playSound(138090596, 0.5) -- Звук ошибки
+    playSound(138090596, 0.5)
     NotifText.Text = msg or "нету текста"
     NotificationFrame.BackgroundTransparency = 0
     NotifText.TextTransparency = 0
@@ -142,7 +171,7 @@ local function showErrorNotification(msg)
 end
 
 ----------------------------------------------------
--- 2. ИНТРО (v3.2 fix)
+-- 2. ИНТРО
 ----------------------------------------------------
 local IntroFrame = Instance.new("Frame")
 IntroFrame.Name = "IntroFrame"
@@ -167,7 +196,7 @@ local IntroTitle = Instance.new("TextLabel")
 IntroTitle.Size = UDim2.new(1, 0, 0, 60)
 IntroTitle.Position = UDim2.new(0, 0, 0.30, 0)
 IntroTitle.BackgroundTransparency = 1
-IntroTitle.Text = "I S P A R L O S E  v3.2 (fix)"
+IntroTitle.Text = "I S P A R L O S E  v3.3"
 IntroTitle.Font = Enum.Font.GothamBold
 IntroTitle.TextSize = 28
 IntroTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -178,7 +207,7 @@ local IntroSub = Instance.new("TextLabel")
 IntroSub.Size = UDim2.new(1, 0, 0, 20)
 IntroSub.Position = UDim2.new(0, 0, 0.50, 0)
 IntroSub.BackgroundTransparency = 1
-IntroSub.Text = "INITIALIZING SYSTEM..."
+IntroSub.Text = "INITIALIZING CORE SYSTEM..."
 IntroSub.Font = Enum.Font.GothamMedium
 IntroSub.TextSize = 12
 IntroSub.TextColor3 = Color3.fromRGB(160, 160, 180)
@@ -229,7 +258,6 @@ MainStroke.Color = Color3.fromRGB(45, 45, 60)
 MainStroke.Thickness = 1
 MainStroke.Parent = MainFrame
 
--- Topbar
 local Topbar = Instance.new("Frame")
 Topbar.Size = UDim2.new(1, 0, 0, 40)
 Topbar.BackgroundColor3 = Color3.fromRGB(13, 13, 17)
@@ -244,14 +272,13 @@ local TopbarTitle = Instance.new("TextLabel")
 TopbarTitle.Position = UDim2.new(0, 15, 0, 0)
 TopbarTitle.Size = UDim2.new(0, 280, 1, 0)
 TopbarTitle.BackgroundTransparency = 1
-TopbarTitle.Text = "ISPARLOSE  |  HUB v3.2 (fix)"
+TopbarTitle.Text = "ISPARLOSE  |  HUB v3.3"
 TopbarTitle.Font = Enum.Font.GothamBold
 TopbarTitle.TextSize = 13
 TopbarTitle.TextColor3 = Color3.fromRGB(240, 240, 250)
 TopbarTitle.TextXAlignment = Enum.TextXAlignment.Left
 TopbarTitle.Parent = Topbar
 
--- Перетаскивание меню
 local dragging, dragInput, dragStart, startPos
 Topbar.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 then
@@ -277,7 +304,6 @@ UserInputService.InputChanged:Connect(function(input)
     end
 end)
 
--- Sidebar & Content
 local Sidebar = Instance.new("Frame")
 Sidebar.Size = UDim2.new(0, 140, 1, -40)
 Sidebar.Position = UDim2.new(0, 0, 0, 40)
@@ -298,8 +324,7 @@ ContentPanel.Position = UDim2.new(0, 141, 0, 40)
 ContentPanel.BackgroundTransparency = 1
 ContentPanel.Parent = MainFrame
 
--- Функция создания Scroll-контейнера для вкладок
-local function createTabScroll()
+local function createTabScroll(canvasHeight)
     local scroll = Instance.new("ScrollingFrame")
     scroll.Size = UDim2.new(1, -20, 1, -20)
     scroll.Position = UDim2.new(0, 10, 0, 10)
@@ -307,7 +332,7 @@ local function createTabScroll()
     scroll.BorderSizePixel = 0
     scroll.ScrollBarThickness = 3
     scroll.ScrollBarImageColor3 = Color3.fromRGB(80, 80, 100)
-    scroll.CanvasSize = UDim2.new(0, 0, 0, 480)
+    scroll.CanvasSize = UDim2.new(0, 0, 0, canvasHeight or 500)
     scroll.Visible = false
     scroll.Parent = ContentPanel
     
@@ -319,14 +344,13 @@ local function createTabScroll()
     return scroll
 end
 
-local VisualsScroll = createTabScroll()
+local VisualsScroll = createTabScroll(620)
 VisualsScroll.Visible = true
 
-local SoundsScroll = createTabScroll()
-local MiscScroll = createTabScroll()
-local ConfigScroll = createTabScroll()
+local SoundsScroll = createTabScroll(480)
+local MiscScroll = createTabScroll(480)
+local ConfigScroll = createTabScroll(480)
 
--- Кнопки в сайдбаре
 local function createTabBtn(text, posY)
     local btn = Instance.new("TextButton")
     btn.Size = UDim2.new(1, -20, 0, 34)
@@ -511,18 +535,22 @@ createToggle(VisualsScroll, "   └─ Show Teammates Boxes", "BoxTeammates")
 createToggle(VisualsScroll, "   └─ Show HP Bar (Left Green->Red)", "ShowHP")
 createToggle(VisualsScroll, "   └─ Show Weapon Name (Bottom)", "ShowWeapon")
 
-createSection(VisualsScroll, "3. Directional Arrows")
+createSection(VisualsScroll, "3. Skeleton ESP")
+createToggle(VisualsScroll, "Enable Skeleton ESP", "SkeletonESP")
+createToggle(VisualsScroll, "   └─ Show Teammates Skeleton", "SkeletonTeammates")
+
+createSection(VisualsScroll, "4. Directional Arrows")
 createToggle(VisualsScroll, "Enable Offscreen Arrows", "ArrowsESP")
 createToggle(VisualsScroll, "   └─ Show Enemies Arrows", "ArrowEnemies")
 
-createSection(VisualsScroll, "4. Bullet Tracers")
+createSection(VisualsScroll, "5. Bullet Tracers")
 createToggle(VisualsScroll, "Enable Bullet Tracers", "BulletTracers")
 createButton(VisualsScroll, "   └─ Tracer Color: [ Neon Cyan ]", function(btn)
     Config.TracerColorIndex = Config.TracerColorIndex % #Config.TracerColors + 1
     btn.Text = "   └─ Tracer Color: [ " .. Config.TracerColorNames[Config.TracerColorIndex] .. " ]"
 end)
 
--- 2. Sounds / Audio (НОВАЯ ВКЛАДКА)
+-- 2. Sounds / Audio
 createSection(SoundsScroll, "1. Hit Sounds (CS2 Style)")
 createToggle(SoundsScroll, "Enable Hit Sound", "HitSound")
 createToggle(SoundsScroll, "   └─ Play On Teammates Damage", "HitSoundTeammates")
@@ -531,7 +559,6 @@ createButton(SoundsScroll, "   └─ Hit Sound Style: [ Skeet (Bell) ]", functi
     Config.HitSoundIndex = Config.HitSoundIndex % #HitSoundList + 1
     local selectedSound = HitSoundList[Config.HitSoundIndex]
     btn.Text = "   └─ Hit Sound Style: [ " .. selectedSound.Name .. " ]"
-    -- Демонстрация звука при выборе
     playSound(selectedSound.Id, Config.HitVolumes[Config.HitSoundVolumeIndex])
 end)
 
@@ -742,7 +769,7 @@ OkBtn.MouseButton1Click:Connect(function()
 end)
 
 ----------------------------------------------------
--- 5. ЛОГИКА HIT SOUNDS (ОТСЛЕЖИВАНИЕ ПОПАДАНИЙ)
+-- 5. ЛОГИКА HIT SOUNDS
 ----------------------------------------------------
 local function isTeammate(player)
     if not player or player == LocalPlayer then return false end
@@ -789,16 +816,34 @@ for _, p in ipairs(Players:GetPlayers()) do attachHitSoundToPlayer(p) end
 Players.PlayerAdded:Connect(attachHitSoundToPlayer)
 
 ----------------------------------------------------
--- 6. ИНТРО АНИМАЦИЯ
+-- 6. ИНТРО АНИМАЦИЯ С ДИНАМИЧЕСКИМИ ФРАЗАМИ
 ----------------------------------------------------
+local introPhrases = {
+    "INITIALIZING CORE SYSTEM...",
+    "LOADING VISUAL MODULES...",
+    "HOOKING RENDER ENGINE...",
+    "CONFIGURING SKELETON & BOX ESP...",
+    "BYPASSING SECURITY CHECKS...",
+    "SYSTEM READY!"
+}
+
 task.spawn(function()
     TweenService:Create(IntroTitle, TweenInfo.new(0.8), {TextTransparency = 0}):Play()
     task.wait(0.3)
     TweenService:Create(IntroSub, TweenInfo.new(0.8), {TextTransparency = 0}):Play()
     TweenService:Create(ProgressBarBg, TweenInfo.new(0.5), {BackgroundTransparency = 0}):Play()
     
-    TweenService:Create(ProgressBarFill, TweenInfo.new(1.4, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {Size = UDim2.new(1, 0, 1, 0)}):Play()
-    task.wait(1.5)
+    local totalDuration = 2.2
+    TweenService:Create(ProgressBarFill, TweenInfo.new(totalDuration, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {Size = UDim2.new(1, 0, 1, 0)}):Play()
+    
+    -- Поочередная смена фраз во время загрузки
+    local stepDelay = totalDuration / #introPhrases
+    for _, phrase in ipairs(introPhrases) do
+        IntroSub.Text = phrase
+        task.wait(stepDelay)
+    end
+    
+    task.wait(0.3)
     
     TweenService:Create(IntroTitle, TweenInfo.new(0.3), {TextTransparency = 1}):Play()
     TweenService:Create(IntroSub, TweenInfo.new(0.3), {TextTransparency = 1}):Play()
@@ -821,7 +866,7 @@ task.spawn(function()
 end)
 
 ----------------------------------------------------
--- 7. ВСПОМОГАТЕЛЬНЫЕ ПРОВЕРКИ DLYA TRACERS И UI
+-- 7. ВСПОМОГАТЕЛЬНЫЕ ПРОВЕРКИ
 ----------------------------------------------------
 local EspFolder = Instance.new("Folder")
 EspFolder.Name = "IsparloseESP"
@@ -867,7 +912,7 @@ local function isMouseOverUI()
 end
 
 ----------------------------------------------------
--- 8. ТРЕЙСЕРЫ ПУЛЬ (ЗАЖИМ, ФИЛЬТР МАГАЗИНА И НОЖА)
+-- 8. ТРЕЙСЕРЫ ПУЛЬ
 ----------------------------------------------------
 local activeTracer = nil
 local activeTracerConn = nil
@@ -955,7 +1000,7 @@ UserInputService.InputEnded:Connect(function(input)
 end)
 
 ----------------------------------------------------
--- 9. ЛОГИКА MISC (NO MOLOTOV & NOCLIP)
+-- 9. MISC LOGIC
 ----------------------------------------------------
 RunService.Heartbeat:Connect(function()
     if Config.AntiMolotov then
@@ -981,50 +1026,35 @@ RunService.Stepped:Connect(function()
 end)
 
 ----------------------------------------------------
--- 10. РАСЧЕТ ИДЕАЛЬНОГО 3D BOUNDING BOX
+-- 10. ТОЧНЫЙ РАСЧЕТ 2D BOUNDING BOX
 ----------------------------------------------------
 local function getCharacterBoxBounds(char)
     if not char then return nil end
-    local cf, size = char:GetBoundingBox()
-    
-    local halfX = size.X / 2
-    local halfY = size.Y / 2
-    local halfZ = size.Z / 2
-    
-    local corners = {
-        cf * Vector3.new(-halfX,  halfY, -halfZ),
-        cf * Vector3.new( halfX,  halfY, -halfZ),
-        cf * Vector3.new(-halfX, -halfY, -halfZ),
-        cf * Vector3.new( halfX, -halfY, -halfZ),
-        cf * Vector3.new(-halfX,  halfY,  halfZ),
-        cf * Vector3.new( halfX,  halfY,  halfZ),
-        cf * Vector3.new(-halfX, -halfY,  halfZ),
-        cf * Vector3.new( halfX, -halfY,  halfZ),
-    }
-    
-    local minX, minY = math.huge, math.huge
-    local maxX, maxY = -math.huge, -math.huge
-    local anyOnScreen = false
-    
-    for _, cornerPos in ipairs(corners) do
-        local screenPos, onScreen = Camera:WorldToViewportPoint(cornerPos)
-        if screenPos.Z > 0 then
-            anyOnScreen = true
-            minX = math.min(minX, screenPos.X)
-            minY = math.min(minY, screenPos.Y)
-            maxX = math.max(maxX, screenPos.X)
-            maxY = math.max(maxY, screenPos.Y)
-        end
-    end
-    
-    if anyOnScreen and minX < maxX and minY < maxY then
-        return minX, minY, maxX - minX, maxY - minY
-    end
-    return nil
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    local head = char:FindFirstChild("Head")
+    if not hrp or not head then return nil end
+
+    local topWorld = head.CFrame * Vector3.new(0, head.Size.Y * 0.6, 0)
+    local bottomWorld = hrp.CFrame * Vector3.new(0, -3.1, 0)
+
+    local topPos, topVisible = Camera:WorldToViewportPoint(topWorld)
+    local bottomPos, bottomVisible = Camera:WorldToViewportPoint(bottomWorld)
+
+    if topPos.Z <= 0 or bottomPos.Z <= 0 then return nil end
+    if not topVisible and not bottomVisible then return nil end
+
+    local height = math.abs(bottomPos.Y - topPos.Y)
+    if height < 3 then return nil end
+
+    local width = height * 0.55
+    local x = topPos.X - (width / 2)
+    local y = topPos.Y
+
+    return x, y, width, height
 end
 
 ----------------------------------------------------
--- 11. РЕНДЕР КАЖДОГО КАДРА (ESP)
+-- 11. РЕНДЕР КАЖДОГО КАДРА (ESP & SKELETON)
 ----------------------------------------------------
 local espElements = {}
 
@@ -1084,13 +1114,28 @@ local function createEspBox(player)
     arrowStroke.Thickness = 1.2
     arrowStroke.Parent = arrow
 
+    -- Линии скелета
+    local skeletonLines = {}
+    for i = 1, 15 do
+        local line = Instance.new("Frame")
+        line.Name = "SkelLine_" .. player.Name .. "_" .. i
+        line.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+        line.BorderSizePixel = 0
+        line.AnchorPoint = Vector2.new(0.5, 0.5)
+        line.Visible = false
+        line.ZIndex = 5
+        line.Parent = EspFolder
+        table.insert(skeletonLines, line)
+    end
+
     espElements[player] = {
         Box = boxFrame,
         Outline = boxOutline,
         HpBg = hpBg,
         HpFill = hpFill,
         Weapon = weaponLabel,
-        Arrow = arrow
+        Arrow = arrow,
+        SkeletonLines = skeletonLines
     }
 end
 
@@ -1098,6 +1143,11 @@ local function removeEspBox(player)
     if espElements[player] then
         if espElements[player].Box then espElements[player].Box:Destroy() end
         if espElements[player].Arrow then espElements[player].Arrow:Destroy() end
+        if espElements[player].SkeletonLines then
+            for _, line in ipairs(espElements[player].SkeletonLines) do
+                line:Destroy()
+            end
+        end
         espElements[player] = nil
     end
 end
@@ -1182,6 +1232,48 @@ RunService.RenderStepped:Connect(function()
                     elements.Box.Visible = false
                 end
                 
+                -- SKELETON ESP
+                if Config.SkeletonESP and (not isTeam or Config.SkeletonTeammates) then
+                    local skelColor = isTeam and Color3.fromRGB(0, 200, 255) or Color3.fromRGB(255, 255, 255)
+                    local connections = (hum.RigType == Enum.HumanoidRigType.R15) and R15_BONES or R6_BONES
+                    local lineIdx = 1
+
+                    for _, pair in ipairs(connections) do
+                        local p1 = char:FindFirstChild(pair[1])
+                        local p2 = char:FindFirstChild(pair[2])
+                        
+                        if p1 and p2 then
+                            local v1, vis1 = Camera:WorldToViewportPoint(p1.Position)
+                            local v2, vis2 = Camera:WorldToViewportPoint(p2.Position)
+                            
+                            if v1.Z > 0 and v2.Z > 0 and (vis1 or vis2) then
+                                local line = elements.SkeletonLines[lineIdx]
+                                if line then
+                                    local pos1 = Vector2.new(v1.X, v1.Y)
+                                    local pos2 = Vector2.new(v2.X, v2.Y)
+                                    local dist = (pos2 - pos1).Magnitude
+                                    local angle = math.deg(math.atan2(pos2.Y - pos1.Y, pos2.X - pos1.X))
+                                    
+                                    line.Size = UDim2.new(0, dist, 0, 1.5)
+                                    line.Position = UDim2.new(0, (pos1.X + pos2.X) / 2, 0, (pos1.Y + pos2.Y) / 2)
+                                    line.Rotation = angle
+                                    line.BackgroundColor3 = skelColor
+                                    line.Visible = true
+                                end
+                                lineIdx = lineIdx + 1
+                            end
+                        end
+                    end
+                    
+                    for i = lineIdx, #elements.SkeletonLines do
+                        elements.SkeletonLines[i].Visible = false
+                    end
+                else
+                    for _, line in ipairs(elements.SkeletonLines) do
+                        line.Visible = false
+                    end
+                end
+
                 -- ARROWS ESP
                 if Config.ArrowsESP and (isTeam or Config.ArrowEnemies) then
                     local camCFrame = Camera.CFrame
@@ -1206,6 +1298,9 @@ RunService.RenderStepped:Connect(function()
             else
                 elements.Box.Visible = false
                 elements.Arrow.Visible = false
+                for _, line in ipairs(elements.SkeletonLines) do
+                    line.Visible = false
+                end
             end
         end
     end
